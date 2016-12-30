@@ -23,7 +23,7 @@ import com.gj.web.crawler.pool.basic.URL;
  * @author David
  *
  */
-public class Crawler {
+public class Crawler implements CrawlerApi{
 	private static final int MAX_CONNECT_THREAD = 6;
 	/**
 	 * for each web site,it may limit the number of connection at the moment,
@@ -50,6 +50,10 @@ public class Crawler {
 	private String allowString = null;
 	
 	private String parseString = null;
+	/**
+	 * entrance-URL
+	 */
+	private String entrance = null;
 	
 	private volatile Integer num = 0;
 	
@@ -193,10 +197,15 @@ public class Crawler {
 			crawlLock.unlock();
 		}
 	}
+	public void setEntrance(String entrance){
+		this.entrance = entrance;
+	}
+	public String entrance() {
+		return entrance;
+	}
 	public Integer getConnNum() {
 		return connNum;
 	}
-	
 	public void setConnNum(Integer connNum) {
 		this.connNum = connNum;
 	}

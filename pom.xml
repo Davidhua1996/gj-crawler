@@ -6,7 +6,6 @@
   <artifactId>gj-crawler</artifactId>
   <version>1.0</version>
   <packaging>jar</packaging>
-
   <name>gj-crawler</name>
   <url>http://maven.apache.org</url>
   <contributors>
@@ -30,6 +29,7 @@
     <com.fasterxml.jackson.version>2.4.1</com.fasterxml.jackson.version>
      <!-- log4j2 -->
     <log4j.version>2.5</log4j.version>
+    <org.springframework.version>4.0.3.RELEASE</org.springframework.version>
   </properties>
   <dependencies>
     <dependency>
@@ -58,6 +58,16 @@
 		<groupId>org.apache.logging.log4j</groupId>
 		<artifactId>log4j-core</artifactId>
 		<version>${log4j.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-context</artifactId>
+		<version>${org.springframework.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-web</artifactId>
+		<version>${org.springframework.version}</version>
 	</dependency>
   </dependencies>
 </project>

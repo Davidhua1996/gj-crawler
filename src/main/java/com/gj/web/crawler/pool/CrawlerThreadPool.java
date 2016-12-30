@@ -3,6 +3,7 @@ package com.gj.web.crawler.pool;
 import java.util.Map;
 
 import com.gj.web.crawler.Crawler;
+import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.pool.basic.URL;
 
 
@@ -21,10 +22,24 @@ public interface CrawlerThreadPool extends ThreadPool{
 	 * get crawlers from pool
 	 * @return
 	 */
-	public Map<String, Crawler> getCrawlers();
+	public Map<String, CrawlerApi> getCrawlers();
 	/**
 	 * set crawlers into pool
 	 * @param crawlers
 	 */
-	public void setCrawlers(Map<String, Crawler> crawlers);
+	public void setCrawlers(Map<String, CrawlerApi> crawlers);
+	/**
+	 * set the max size of pool
+	 * @param size
+	 */
+	public void setPoolSize(Integer size);
+	
+	public Integer getPoolSize();
+	/**
+	 * set the max free time of pool
+	 * @param free
+	 */
+	public void setMaxFree(Integer free);
+	
+	public Integer getMaxFree();
 }

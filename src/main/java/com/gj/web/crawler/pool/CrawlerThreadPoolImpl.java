@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 import com.gj.web.crawler.Crawler;
+import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.parse.CrawlHTMLParser;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
@@ -53,7 +54,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	/**
 	 * store crawlers
 	 */
-	private Map<String,Crawler> crawlers = new ConcurrentHashMap<String,Crawler>();
+	private Map<String,CrawlerApi> crawlers = new ConcurrentHashMap<String,CrawlerApi>();
 	/**
 	 * lock
 	 */
@@ -176,7 +177,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					break;
 				}
 				//find the crawler from 'crawlers' by domain
-				Crawler crawler = crawlers.get(url.getDomain());
+				CrawlerApi crawler = crawlers.get(url.getDomain());
 				if(null != crawler){
 					//the specific crawl process is in class Crawler
 					try{
@@ -225,13 +226,25 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		this.useMongoQueue = useMongoQueue;
 	}
 	
-	public Map<String, Crawler> getCrawlers() {
+	public Map<String, CrawlerApi> getCrawlers() {
 		return crawlers;
 	}
-	public void setCrawlers(Map<String, Crawler> crawlers) {
+	public void setCrawlers(Map<String, CrawlerApi> crawlers) {
 		this.crawlers = crawlers;
 	}
 	
+	public Integer getPoolSize() {
+		return poolSize;
+	}
+	public void setPoolSize(Integer poolSize) {
+		this.poolSize = poolSize;
+	}
+	public Integer getMaxFree() {
+		return maxFree;
+	}
+	public void setMaxFree(Integer maxFree) {
+		this.maxFree = maxFree;
+	}
 	public List<Monitor> getMonitors() {
 		return monitors;
 	}
@@ -253,7 +266,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		steam.setParser(parser);
 		steam.getCookies().add("mature_content=1");
 		steam.getCookies().add("birthtime=824223601");
-		Map<String,Crawler> crawlers = new HashMap<String,Crawler>();
+		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("steam", steam);
 		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
