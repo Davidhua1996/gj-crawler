@@ -55,6 +55,7 @@ public abstract class CrawlHTMLParser implements Parser{
 			String key = entry.getKey();
 			String exp = pattern.getExp();
 			String type = pattern.getType();
+			String attr = pattern.getAttr();
 			if(null == type){ // do you forget the type?
 				type = "text";
 			}
@@ -63,7 +64,7 @@ public abstract class CrawlHTMLParser implements Parser{
 				Element el = elements.get(i);
 				String value = null;
 				if(type.matches("(photo)|(video)")){
-					value = el.attr("src");
+					value = el.attr(attr!=null?attr:"src");
 					if(pattern.isDownload()){
 						URL src = new URL(url.getDomain(), value);//dont't forget domain
 						src.setType(type);
@@ -76,7 +77,7 @@ public abstract class CrawlHTMLParser implements Parser{
 				}else if(type.matches("text")){
 					value = el.html();//not to use method text() for keeping the HTML tag
 				}else if(type.matches("html")){
-					value = el.attr("href");
+					value = el.attr(attr!=null?attr:"href");
 					if(pattern.isDownload()){
 						URL href = new URL(url.getDomain(), value);//dont't forget domain
 						href.setType(type);

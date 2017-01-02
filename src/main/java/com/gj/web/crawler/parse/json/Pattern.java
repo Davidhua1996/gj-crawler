@@ -25,6 +25,13 @@ public class Pattern implements Serializable{
 	 * whether should download to local disk 
 	 */
 	private boolean download = false;
+	/**
+	 * the attribute of element,
+	 * if type equals "photo|video" the value is "src" default
+	 * else is "null"(to crawl the text content),
+	 * you can set as you like
+	 */
+	private String attr = "";
 	public String getExp() {
 		return exp;
 	}
@@ -43,4 +50,11 @@ public class Pattern implements Serializable{
 	public void setDownload(boolean download) {
 		this.download = download;
 	}
+	public String getAttr() {
+		return attr;
+	}
+	public void setAttr(String attr) {
+		this.attr = attr;
+	}
+	
 }
