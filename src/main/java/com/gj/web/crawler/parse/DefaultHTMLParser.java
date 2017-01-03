@@ -19,7 +19,7 @@ public class DefaultHTMLParser extends CrawlHTMLParser {
 		if(result.getString("picture") == null){
 //			System.out.println(result.getString("_url"));
 		}
-		System.out.println(result.getString("configuration"));
+		System.out.println(result.getString("_url"));
 		for(Entry<String,Object[]> entry : inner.entrySet()){
 //			System.out.println(entry.getKey()+":  "+entry.getValue()[0].toString());
 		}

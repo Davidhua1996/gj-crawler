@@ -107,7 +107,7 @@ public class Crawler implements CrawlerApi{
 	 * @param url
 	 * @param storePath local space to store medium
 	 */
-	public void crawlMedium(URL url,String storePath){
+	public void crawlMedia(URL url,String storePath){
 		if(null != storePath && !storePath.trim().equals("")){
 			begin();
 			HttpExecutor executor = HttpExecutor.newInstance(url.getUrl());

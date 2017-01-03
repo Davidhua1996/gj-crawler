@@ -190,7 +190,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									execute(tmp);
 								}
 							}else if(url.getType().matches("(photo)|(video)")){
-								crawler.crawlMedium(url, url.getLocal());
+								crawler.crawlMedia(url, url.getLocal());
 							}
 						}
 					}catch(Exception ex){
@@ -255,8 +255,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlHTMLParser parser = new DefaultHTMLParser();
 		Map<String,String> patterns = new HashMap<String,String>();
 		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
-//		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
+		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
 		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
+		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'true'}");
 		parser.setPatterns(patterns);
 		Crawler steam = new Crawler();
 		steam.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");

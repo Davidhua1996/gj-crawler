@@ -16,7 +16,7 @@ public interface CrawlerApi {
 	 * @param url
 	 * @param storePath
 	 */
-	public void crawlMedium(URL url,String storePath);
+	public void crawlMedia(URL url,String storePath);
 	/**
 	 * return the entrance-URL if it is a crawler for searching,
 	 * else return null in default

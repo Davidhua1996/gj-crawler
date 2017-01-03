@@ -26,12 +26,16 @@ public class Pattern implements Serializable{
 	 */
 	private boolean download = false;
 	/**
-	 * the attribute of element,
+	 * if is an identify value
+	 */
+	private boolean identify = false;
+	/**
+	 * the attribute of element to crawl,
 	 * if type equals "photo|video" the value is "src" default
 	 * else is "null"(to crawl the text content),
 	 * you can set as you like
 	 */
-	private String attr = "";
+	private String attr = null;
 	public String getExp() {
 		return exp;
 	}
@@ -56,5 +60,10 @@ public class Pattern implements Serializable{
 	public void setAttr(String attr) {
 		this.attr = attr;
 	}
-	
+	public boolean isIdentify() {
+		return identify;
+	}
+	public void setIdentify(boolean identify) {
+		this.identify = identify;
+	}
 }
