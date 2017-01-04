@@ -65,7 +65,7 @@ public abstract class CrawlHTMLParser implements Parser{
 			Elements elements = doc.select(exp);
 			if(pattern.isIdentify()){
 				String value = parseElement(elements.get(0), type, attr);
-				subDir += "_"+value;
+				subDir += (subDir.equals("/")?subDir:"_"+subDir); 
 				model.putAndAdd(key, value);
 			}else{
 				for(int i = 0;i<elements.size();i++){
