@@ -33,4 +33,9 @@ public interface CrawlerApi {
 	 * @return
 	 */
 	public Object getId();
+	/**
+	 * return if it uses parameters 
+	 * @return
+	 */
+	public boolean isUseParams();
 }

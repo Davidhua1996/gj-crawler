@@ -77,8 +77,8 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			Elements elements = doc.select(exp);
 			if(pattern.isIdentify() && elements.size() > 0){
 				String value = parseElement(elements.get(0), type, attr);
-				value = value.replaceAll("[\\/:*?\"<>|]", " ");
-				subDir += (subDir.equals("/")?value:"_"+value); 
+				String tmp = value.replaceAll("[\\/:*?\"<>|]", " ").trim();
+				subDir += (subDir.equals("/")?tmp:"_"+tmp); 
 				model.putAndAdd(key, value);
 			}else{
 				for(int i = 0;i<elements.size();i++){

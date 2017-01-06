@@ -35,6 +35,8 @@ public class Crawler implements CrawlerApi,Serializable{
 	 * unique identify
 	 */
 	private Object id;
+	
+	private boolean useParams = false;
 	/**
 	 * for each web site,it may limit the number of connection at the moment,
 	 * so we set the number by default
@@ -102,7 +104,15 @@ public class Crawler implements CrawlerApi,Serializable{
 					elements = document.select("A[href~="+getAllowString()+"]");
 				}
 				for(int i = 0;i<elements.size();i++){
-					urls.add(new URL(null,elements.get(i).attr("href")));
+					String urlStr = elements.get(i).attr("href");
+					if(urlStr.startsWith("//")){
+						urlStr = "http:"+urlStr;
+					}else if (urlStr.length() <= 4 ||
+							!urlStr.substring(0,4).equalsIgnoreCase("http")){
+						String before = url.getUrl();
+						urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
+					}
+					urls.add(new URL(null,urlStr));
 				}
 			}
 		}catch(Exception e){
@@ -123,12 +133,13 @@ public class Crawler implements CrawlerApi,Serializable{
 	public void crawlMedia(URL url,String storePath){
 		if(null != storePath && !storePath.trim().equals("")){
 			begin();
-			HttpExecutor executor = HttpExecutor.newInstance(url.getUrl());
-			executor.wrapperConn().cookies(cookies).execute();
-			Response response = executor.response();
+			HttpExecutor executor = null;
 			FileOutputStream out = null;
 			BufferedInputStream in = null;
 			try{
+				executor = HttpExecutor.newInstance(url.getUrl());
+				executor.wrapperConn().cookies(cookies).execute();
+				Response response = executor.response();
 				out = new FileOutputStream(storePath);
 				in = new 
 						BufferedInputStream(response.getInputStream(),DataUtils.BUFFER_SIZE);//download from input stream
@@ -137,15 +148,15 @@ public class Crawler implements CrawlerApi,Serializable{
 				while((size = in.read(b)) > 0){
 					out.write(b,0,size);
 				}
-			}catch(IOException e){
+			}catch(Exception e){
 				if(e instanceof FileNotFoundException){//404 ignore
 					//TODO make some logs
 				}else{
 					throw new RuntimeException(e);
 				}
 			}finally{
-				executor.disconnect();
 				try {
+					executor.disconnect();
 					if(null != in)in.close();
 					if(null != out)out.close();
 				} catch (IOException e) {
@@ -229,9 +240,6 @@ public class Crawler implements CrawlerApi,Serializable{
 	public void setAllowURL(List<String> allowURL) {
 		this.allowURL = allowURL;
 	}
-	public void setAllowString(String allowString) {
-		this.allowString = allowString;
-	}
 	public String getRestrict() {
 		return restrict;
 	}
@@ -267,6 +275,12 @@ public class Crawler implements CrawlerApi,Serializable{
 	}
 	public void setId(Object id) {
 		this.id = id;
+	}
+	public boolean isUseParams() {
+		return useParams;
+	}
+	public void setUseParams(boolean useParams) {
+		this.useParams = useParams;
 	}
 	
 }

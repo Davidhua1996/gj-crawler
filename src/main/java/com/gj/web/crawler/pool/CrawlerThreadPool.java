@@ -19,6 +19,18 @@ public interface CrawlerThreadPool extends ThreadPool{
 	 */
 	public void execute(String cid);
 	/**
+	 * execute with params
+	 * @param cid
+	 * @param obj
+	 */
+	public void execute(String cid,Object...params);
+	/**
+	 * execute with params
+	 * @param cid
+	 * @param params
+	 */
+	public void execute(String cid,Map<String,Object> params);
+	/**
 	 * execute the url
 	 * @param task
 	 */

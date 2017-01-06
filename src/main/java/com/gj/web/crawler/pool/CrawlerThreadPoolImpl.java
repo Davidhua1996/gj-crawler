@@ -22,6 +22,7 @@ import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.IMQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.utils.InjectUtils;
 
 /**
  * do make a single pool to manager the crawler threads
@@ -111,13 +112,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			}
 		}
 	}
-	public void execute(String cid) {
-		CrawlerApi crawler = crawlers.get(cid);
-		if(null != crawler){
-			URL url = new URL(cid,crawler.portal());
-			execute(url);
-		}
-	}
 	public boolean isOpen() {
 		return false;
 	}
@@ -130,7 +124,13 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			}
 		}
 	}
-
+	public void execute(String cid) {
+		CrawlerApi crawler = crawlers.get(cid);
+		if(null != crawler && !crawler.isUseParams()){
+			URL url = new URL(cid,crawler.portal());
+			execute(url);
+		}
+	}
 	public void execute(URL url) {
 		poolLock.lock();
 		try{
@@ -139,6 +139,23 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			notEmpty.signal();//TODO choose to use signal() or signalAll()?
 		}finally{
 			poolLock.unlock();
+		}
+	}
+	public void execute(String cid, Object... params) {
+		CrawlerApi crawler = crawlers.get(cid);
+		if(null != crawler && crawler.isUseParams()){
+			String portal = InjectUtils.inject(crawler.portal(), params);
+			System.out.println(portal);
+			URL url = new URL(cid, portal);
+			execute(url);
+		}
+	}
+	public void execute(String cid, Map<String, Object> params) {
+		CrawlerApi crawler = crawlers.get(cid);
+		if(null != crawler && crawler.isUseParams()){
+			String portal = InjectUtils.inject(crawler.portal(), params);
+			URL url = new URL(cid, portal);
+			execute(url);
 		}
 	}
 	/**

@@ -14,22 +14,23 @@ import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
+import com.gj.web.crawler.utils.InjectUtils;
 
 
 public class CrawlerDemo{
 	/**
-	 * 编程式调用爬虫样例（以steam为例子）
-	 * @param args
-	 * @throws Exception
+	 * 编程式调用爬虫样例1:固定的入口链接（以steam为例子）
+	 * 
+	 * 
 	 */
-	public static void main(String[] args) throws Exception{
+	public static void crawler1(){
 		Crawler crawler = new Crawler();//初始化爬虫类
 		crawler.setLazy(false);//设置为非懒加载（爬虫池一打开就开始）
 		crawler.setPortal("http://store.steampowered.com/search/?sort_by=Released_DESC&tags=-1");//设置入口链接
 		//设置允许继续爬取的链接，用于对页面上链接进行匹配，注意为正则表达式，对特殊符号.等用\\.或者[.]
 		crawler.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");
 		crawler.getAllowURL().add("http[:]//store[.]steampowered[.]com/app/.*");
-		//设置需要解析的链接，用于对页面上链接进行匹配,也为正则表达式 
+		//设置需要解析的链接,这里用于对当前地址栏的链接进行匹配，也为正则表达式 
 		crawler.getParseURL().add("http[:]//store[.]steampowered[.]com/app/.*");
 		//设置爬虫需要带的Cookie
 		crawler.getCookies().add("mature_content=1");
@@ -59,5 +60,37 @@ public class CrawlerDemo{
 		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.open();//打开爬虫池
+	}
+	/**
+	 * 编程式调用爬虫样例2:不固定的入口链接（以BiliBili为例子）
+	 * 
+	 * 
+	 */
+	private static void crawler2(){
+		Crawler crawler = new Crawler();//初始化爬虫类
+		crawler.setUseParams(true);//设置使用参数
+		crawler.setLazy(true);//懒加载
+		//#{parameter}为需要注入的属性
+		crawler.setPortal("http://search.bilibili.com/all?keyword=#{keyword}&page=#{pageNum}&order=totalrank&tids_1=4");
+		crawler.getAllowURL().add("//www.bilibili.com/video/av\\w+");
+		crawler.getParseURL().add("http://www.bilibili.com/video/av\\w+");
+		crawler.setRestrict("ul[class=ajax-render]");
+		DefaultHTMLParser parser = new DefaultHTMLParser();
+		parser.setDir("/usr/tmp02");
+		Map<String,String> patterns = new HashMap<String,String>();
+		patterns.put("title", "{exp:'div[class=v-title] h1',type:'text'}");
+		patterns.put("date", "{exp:'time i'}");
+		patterns.put("playUrl","{exp:'object[class=player]',attr:'data'}");
+		parser.setPatterns(patterns);
+		crawler.setParser(parser);
+		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
+		crawlers.put("bilibili", crawler);
+		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		pool.setCrawlers(crawlers);
+		pool.open();
+		pool.execute("bilibili",new Object[]{"纯黑","1"});
+	}
+	public static void main(String[] args) {
+		crawler2();
 	}
 }
