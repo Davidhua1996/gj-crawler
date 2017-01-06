@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
-import com.gj.web.crawler.parse.CrawlHTMLParser;
+import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.IMQueue;
@@ -98,9 +99,25 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 				new Thread(worker).start();
 				num.incrementAndGet();
 			}
+			//start to crawl
+			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
+				CrawlerApi crawler = entry.getValue();
+				String cid = entry.getKey();
+				if(null != crawler.portal() && !crawler.isLazy()){
+					String urlStr = crawler.portal();
+					URL url = new URL(cid, urlStr);
+					execute(url);
+				}
+			}
 		}
 	}
-
+	public void execute(String cid) {
+		CrawlerApi crawler = crawlers.get(cid);
+		if(null != crawler){
+			URL url = new URL(cid,crawler.portal());
+			execute(url);
+		}
+	}
 	public boolean isOpen() {
 		return false;
 	}
@@ -176,8 +193,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 				if(!bool || url == null){//cannot get the URL from queue,destroy the thread automatically
 					break;
 				}
-				//find the crawler from 'crawlers' by domain
-				CrawlerApi crawler = crawlers.get(url.getDomain());
+				//find the crawler from 'crawlers' by cid
+				CrawlerApi crawler = crawlers.get(url.getCid());
 				if(null != crawler){
 					//the specific crawl process is in class Crawler
 					try{
@@ -186,7 +203,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 								List<URL> urls = crawler.crawlHTML(url);
 								for(int i = 0;i<urls.size();i++){
 									URL tmp = urls.get(i);
-									tmp.setDomain(url.getDomain());//set domain tag
+									tmp.setCid(url.getCid());//set cid tag
 									execute(tmp);
 								}
 							}else if(url.getType().matches("(photo)|(video)")){
@@ -250,31 +267,5 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public void setMonitors(List<Monitor> monitors) {
 		this.monitors = monitors;
-	}
-	public static void main(String[] args) {
-		CrawlHTMLParser parser = new DefaultHTMLParser();
-		Map<String,String> patterns = new HashMap<String,String>();
-		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
-		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
-		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
-		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'true'}");
-		parser.setPatterns(patterns);
-		Crawler steam = new Crawler();
-		steam.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");
-		steam.getAllowURL().add("http[:]//store[.]steampowered[.]com/app/.*");
-		steam.getParseURL().add("http[:]//store[.]steampowered[.]com/app/.*");
-		steam.setRestrict("*[class=search_pagination],div[id=search_result_container]");
-		steam.setParser(parser);
-		steam.getCookies().add("mature_content=1");
-		steam.getCookies().add("birthtime=824223601");
-		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
-		crawlers.put("steam", steam);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
-		pool.setCrawlers(crawlers);
-		pool.open();
-//		pool.execute(new URL("steam", "http://store.steampowered.com/games/"));
-//		pool.execute(new URL("steam", "http://store.steampowered.com/app/537710/"));
-//		pool.execute(new URL("steam","http://cdn.steamstatic.com.8686c.com/steam/apps/256676167/movie480.webm?t=1481628547"));
-		pool.execute(new URL("steam","http://store.steampowered.com/search/?sort_by=Released_DESC&tags=-1"));
 	}
 }

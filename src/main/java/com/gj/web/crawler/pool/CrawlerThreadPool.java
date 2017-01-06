@@ -14,7 +14,12 @@ import com.gj.web.crawler.pool.basic.URL;
  */
 public interface CrawlerThreadPool extends ThreadPool{
 	/**
-	 * add the URL to the pool's buffer queue to crawl
+	 * execute the crawler in pool whose ID is 
+	 * @param task
+	 */
+	public void execute(String cid);
+	/**
+	 * execute the url
 	 * @param task
 	 */
 	public void execute(URL url);

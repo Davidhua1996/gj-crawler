@@ -4,7 +4,7 @@ public class URL {
 	//maybe it is in needed in MongoDB?
 	private String _id;
 	private String url;
-	private String domain;
+	private String cid;
 	//equals content-type
 	private String type = "html";
 	//private String description; - it is not necessary
@@ -14,8 +14,8 @@ public class URL {
 	private long order = 0;
 	//the location on disk for downloading
 	private String local = null;
-	public URL(String domain, String url){
-		this.domain = domain;
+	public URL(String cid, String url){
+		this.cid = cid;
 		this.url = url;
 		this.order = System.currentTimeMillis();
 	}
@@ -49,11 +49,11 @@ public class URL {
 	public void setOrder(long order) {
 		this.order = order;
 	}
-	public String getDomain() {
-		return domain;
+	public String getCid() {
+		return cid;
 	}
-	public void setDomain(String domain) {
-		this.domain = domain;
+	public void setCid(String cid) {
+		this.cid = cid;
 	}
 	public String getLocal() {
 		return local;

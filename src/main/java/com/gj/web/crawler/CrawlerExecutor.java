@@ -1,5 +1,6 @@
 package com.gj.web.crawler;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -13,12 +14,14 @@ import com.gj.web.crawler.pool.basic.URL;
  * the executor of all the crawlers,
  * actually, it is an extension of CrawlerThreadPoolImpl
  * and a bridge between crawler component and other framework like 'Spring'
- * TODO 和其他框架的接口做适配 
  * @author David
  *
  */
 public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
-	
+	/**
+	 * Data Access Object for Crawler
+	 */
+	private CrawlerDao dao = null;
 	private CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 
 	public void open() {
@@ -33,10 +36,12 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		pool.shutdown();
 	}
 
+	public void execute(String cid) {
+		pool.execute(cid);
+	}
 	public void execute(URL url) {
 		pool.execute(url);
 	}
-
 	public Map<String, CrawlerApi> getCrawlers() {
 		return pool.getCrawlers();
 	}
@@ -65,18 +70,15 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	 */
 	public void afterPropertiesSet() throws Exception {
 		if(!pool.isOpen()){
-			pool.open();
-			Map<String,CrawlerApi> crawlers = pool.getCrawlers();
-			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
-				CrawlerApi crawler = entry.getValue();
-				String domain = entry.getKey();
-				if(null != crawler.entrance() &&
-						!crawler.entrance().trim().equals("")){
-					String urlStr = crawler.entrance();
-					URL url = new URL(domain, urlStr);
-					pool.execute(url);
+			if(null != dao){
+				Map<String,CrawlerApi> map = pool.getCrawlers();
+				List<CrawlerApi> crawlers = dao.loadAll();
+				for(int i = 0;i<crawlers.size();i++){
+					CrawlerApi crawler = crawlers.get(i);
+					map.put((String)crawler.getId(), crawler);
 				}
 			}
+			pool.open();
 		}
 	}
 }

@@ -22,5 +22,15 @@ public interface CrawlerApi {
 	 * else return null in default
 	 * @return
 	 */
-	public String entrance();
+	public String portal();
+	/**
+	 * return if is lazy loading
+	 * @return
+	 */
+	public boolean isLazy();
+	/**
+	 * return the unique identify
+	 * @return
+	 */
+	public Object getId();
 }

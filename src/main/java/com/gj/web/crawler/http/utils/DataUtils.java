@@ -2,9 +2,13 @@ package com.gj.web.crawler.http.utils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 
 public class DataUtils {
+	private static final String DATA_PREFIX = "GJ_";
+	private static SimpleDateFormat format = new SimpleDateFormat("yyyMMddHHmmssSSS");
 	public static Integer BUFFER_SIZE = 131072;
 	/**
 	 * Join as regular expression
@@ -47,5 +51,27 @@ public class DataUtils {
 			throw new RuntimeException(e);
 		}
 		return name;
+	}
+	/**
+	 * product a new name for file 
+	 * which came from network in HTTP protocol
+	 * @param name
+	 * @param index distinguish between files which downloaded in the same time(nearest same),but in different index locations 
+	 * @return
+	 */
+	public static String randomHTTPFileName(String name,int index){
+		String id =String.valueOf(Thread.currentThread().getId());
+		String timeS = format.format(Calendar.getInstance().getTime());
+		String newName  = DATA_PREFIX+timeS+"_"+id+index;
+		if(null != name && !name.trim().equals("")){
+			if(name.indexOf("?")>0){//remove string after '?'
+				name = name.substring(0,name.indexOf("?"));
+			}
+			if(name.lastIndexOf(".") > -1){
+				String extension = name.substring(name.lastIndexOf("."));
+				newName += extension;
+			}
+		}
+		return newName;
 	}
 }

@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Condition;
@@ -23,8 +24,17 @@ import com.gj.web.crawler.pool.basic.URL;
  * @author David
  *
  */
-public class Crawler implements CrawlerApi{
+public class Crawler implements CrawlerApi,Serializable{
+	/**
+	 * serialVersionUID
+	 */
+	private static final long serialVersionUID = -9356067239422904L;
+	
 	private static final int MAX_CONNECT_THREAD = 6;
+	/**
+	 * unique identify
+	 */
+	private Object id;
 	/**
 	 * for each web site,it may limit the number of connection at the moment,
 	 * so we set the number by default
@@ -51,20 +61,23 @@ public class Crawler implements CrawlerApi{
 	
 	private String parseString = null;
 	/**
-	 * entrance-URL
+	 * web portal
 	 */
-	private String entrance = null;
+	private String portal = null;
 	
 	private volatile Integer num = 0;
 	
 	private ReentrantLock crawlLock = new ReentrantLock();
 	
 	private Condition notLimit = crawlLock.newCondition();
+	
+	private boolean lazy = true;
+	
 	/**
 	 * contains the specific program of parsing HTML,
 	 * such as parameter mapping
 	 */
-	private Parser parser = new DefaultHTMLParser();
+	protected Parser parser = new DefaultHTMLParser();
 	/**
 	 * crawl HTML page
 	 * return the URLs crawled
@@ -197,11 +210,12 @@ public class Crawler implements CrawlerApi{
 			crawlLock.unlock();
 		}
 	}
-	public void setEntrance(String entrance){
-		this.entrance = entrance;
+	
+	public String portal() {
+		return portal;
 	}
-	public String entrance() {
-		return entrance;
+	public void setPortal(String portal) {
+		this.portal = portal;
 	}
 	public Integer getConnNum() {
 		return connNum;
@@ -225,7 +239,7 @@ public class Crawler implements CrawlerApi{
 		this.restrict = restrict;
 	}
 	public Parser getParser() {
-		return parser;
+		return this.parser;
 	}
 	public void setParser(Parser parser) {
 		this.parser = parser;
@@ -241,6 +255,18 @@ public class Crawler implements CrawlerApi{
 	}
 	public void setCookies(List<String> cookies) {
 		this.cookies = cookies;
+	}
+	public boolean isLazy() {
+		return lazy;
+	}
+	public void setLazy(boolean lazy) {
+		this.lazy = lazy;
+	}
+	public Object getId() {
+		return id;
+	}
+	public void setId(Object id) {
+		this.id = id;
 	}
 	
 }
