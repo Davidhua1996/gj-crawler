@@ -1,14 +1,7 @@
 package com.gj.crawler.test;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.junit.Test;
-import org.xml.sax.InputSource;
-
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
@@ -81,7 +74,7 @@ public class CrawlerDemo{
 		Map<String,String> patterns = new HashMap<String,String>();
 		patterns.put("title", "{exp:'div[class=v-title] h1',type:'text'}");
 		patterns.put("date", "{exp:'time i'}");
-		patterns.put("playUrl","{exp:'object[class=player]',attr:'data'}");
+		patterns.put("playUrl","{exp:'meta[itemprop=embedURL]',attr:'content'}");
 		parser.setPatterns(patterns);
 		crawler.setParser(parser);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
@@ -89,7 +82,9 @@ public class CrawlerDemo{
 		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.open();
-		pool.execute("bilibili",new Object[]{"纯黑","1"});
+		for(int i = 1;i<10;i++){
+			pool.execute("bilibili",new Object[]{"纯黑",i});
+		}
 	}
 	public static void main(String[] args) {
 		crawler2();

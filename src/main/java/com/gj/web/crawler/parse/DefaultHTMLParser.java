@@ -115,8 +115,10 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			model.putAndAdd(key,loc);
 			index ++;
 		}
+		doc.empty();
 		//invoke callback method
 		callback(model);
+		model.inner.clear();
 	}
 	private String parseElement(Element el,String type,String attr){
 		String value = null;

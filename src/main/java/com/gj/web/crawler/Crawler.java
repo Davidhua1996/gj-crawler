@@ -38,7 +38,7 @@ public class Crawler implements CrawlerApi,Serializable{
 	 */
 	private static final long serialVersionUID = -9356067239422904L;
 	
-	private static final int MAX_CONNECT_THREAD = 6;
+	private static final int MAX_CONNECT_THREAD = 10;
 	/**
 	 * unique identify
 	 */
@@ -203,18 +203,23 @@ public class Crawler implements CrawlerApi,Serializable{
 	private String simulateAndResponse(URL url){
 		WebClient client = null;
 		WebConnection webconn = null;
+		String result = null;
 		try {
 			client = softPool.borrowObject();
 			String urlStr = url.getUrl();
 			webconn = client.getWebConnection();//store temply
 			HtmlUnitUtils.setWebConnection(client);
 			HtmlPage page = client.getPage(urlStr);
-			return page.asXml();
+			result = page.asXml();
+			page.cleanUp();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}finally{
 			if(null != client){
 				client.setWebConnection(webconn);
+				client.close();
+				client.getCache().clear();
+				System.gc();
 				try {
 					softPool.returnObject(client);
 				} catch (Exception e) {
@@ -222,6 +227,7 @@ public class Crawler implements CrawlerApi,Serializable{
 				}
 			}
 		}
+		return result;
 	}
 	private boolean isParsable(String pattern){
 		return pattern.matches(getParseString());
