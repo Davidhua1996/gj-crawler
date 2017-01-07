@@ -9,9 +9,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+
+import org.apache.commons.pool.impl.SoftReferenceObjectPool;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.WebConnection;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.gj.web.crawler.htmlunit.HtmlUnitUtils;
+import com.gj.web.crawler.htmlunit.WebClientPooledFactory;
 import com.gj.web.crawler.http.HttpExecutor;
 import com.gj.web.crawler.http.Response;
 import com.gj.web.crawler.http.utils.DataUtils;
@@ -37,6 +45,10 @@ public class Crawler implements CrawlerApi,Serializable{
 	private Object id;
 	
 	private boolean useParams = false;
+	/**
+	 * simulate browser
+	 */
+	private boolean simulate = false;
 	/**
 	 * for each web site,it may limit the number of connection at the moment,
 	 * so we set the number by default
@@ -80,6 +92,9 @@ public class Crawler implements CrawlerApi,Serializable{
 	 * such as parameter mapping
 	 */
 	protected Parser parser = new DefaultHTMLParser();
+	
+	private SoftReferenceObjectPool<WebClient> softPool = 
+			new SoftReferenceObjectPool<WebClient>(new WebClientPooledFactory());
 	/**
 	 * crawl HTML page
 	 * return the URLs crawled
@@ -89,30 +104,37 @@ public class Crawler implements CrawlerApi,Serializable{
 		Document store = null;
 		List<URL> urls = new ArrayList<URL>();
 		try{
-			Response response = connectAndResponse(url);
-			String body = response.body();
+			String body = null;
+			if(simulate){//simulate browser to load script,but maybe too low
+				body = simulateAndResponse(url);
+			}else{
+				Response response = connectAndResponse(url);
+				body = response.body();
+			}
 			if(null != body){
-				Document document = Jsoup.parse(response.body());
+				Document document = Jsoup.parse(body);
+				body = null;//release memory immediately
 				if(isParsable(url.getUrl())){
 					store = document;
-				}
-				Elements elements = null;
-				if(null != restrict){
-					elements = document.select(restrict);
-					elements = elements.select("A[href~="+getAllowString()+"]");
 				}else{
-					elements = document.select("A[href~="+getAllowString()+"]");
-				}
-				for(int i = 0;i<elements.size();i++){
-					String urlStr = elements.get(i).attr("href");
-					if(urlStr.startsWith("//")){
-						urlStr = "http:"+urlStr;
-					}else if (urlStr.length() <= 4 ||
-							!urlStr.substring(0,4).equalsIgnoreCase("http")){
-						String before = url.getUrl();
-						urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
+					Elements elements = null;
+					if(null != restrict){
+						elements = document.select(restrict);
+						elements = elements.select("A[href~="+getAllowString()+"]");
+					}else{
+						elements = document.select("A[href~="+getAllowString()+"]");
 					}
-					urls.add(new URL(null,urlStr));
+					for(int i = 0;i<elements.size();i++){
+						String urlStr = elements.get(i).attr("href");
+						if(urlStr.startsWith("//")){
+							urlStr = "http:"+urlStr;
+						}else if (urlStr.length() <= 4 ||
+								!urlStr.substring(0,4).equalsIgnoreCase("http")){
+							String before = url.getUrl();
+							urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
+						}
+						urls.add(new URL(null,urlStr));
+					}
 				}
 			}
 		}catch(Exception e){
@@ -178,7 +200,29 @@ public class Crawler implements CrawlerApi,Serializable{
 		executor.disconnect();//don't forget that
 		return response;
 	}
-	
+	private String simulateAndResponse(URL url){
+		WebClient client = null;
+		WebConnection webconn = null;
+		try {
+			client = softPool.borrowObject();
+			String urlStr = url.getUrl();
+			webconn = client.getWebConnection();//store temply
+			HtmlUnitUtils.setWebConnection(client);
+			HtmlPage page = client.getPage(urlStr);
+			return page.asXml();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}finally{
+			if(null != client){
+				client.setWebConnection(webconn);
+				try {
+					softPool.returnObject(client);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 	private boolean isParsable(String pattern){
 		return pattern.matches(getParseString());
 	}
@@ -281,6 +325,12 @@ public class Crawler implements CrawlerApi,Serializable{
 	}
 	public void setUseParams(boolean useParams) {
 		this.useParams = useParams;
+	}
+	public boolean isSimulate() {
+		return simulate;
+	}
+	public void setSimulate(boolean simulate) {
+		this.simulate = simulate;
 	}
 	
 }

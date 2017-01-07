@@ -123,7 +123,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		if(type.matches("(photo)|(video)")){
 			value = el.attr(attr!=null?attr:"src");
 		}else if(type.matches("text")){
-			value = el.html();//not to use method text() for keeping the HTML tag
+			value = attr!=null?el.attr(attr):el.html();//not to use method text() for keeping the HTML tag
 		}else if(type.matches("html")){
 			value = el.attr(attr!=null?attr:"href");
 		}else{

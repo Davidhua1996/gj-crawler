@@ -38,4 +38,9 @@ public interface CrawlerApi {
 	 * @return
 	 */
 	public boolean isUseParams();
+	/**
+	 * return if it use a simulate browser
+	 * @return
+	 */
+	public boolean isSimulate();
 }

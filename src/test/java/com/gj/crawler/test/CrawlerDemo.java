@@ -70,6 +70,7 @@ public class CrawlerDemo{
 		Crawler crawler = new Crawler();//初始化爬虫类
 		crawler.setUseParams(true);//设置使用参数
 		crawler.setLazy(true);//懒加载
+		crawler.setSimulate(true);//设置为模拟浏览器形式
 		//#{parameter}为需要注入的属性
 		crawler.setPortal("http://search.bilibili.com/all?keyword=#{keyword}&page=#{pageNum}&order=totalrank&tids_1=4");
 		crawler.getAllowURL().add("//www.bilibili.com/video/av\\w+");

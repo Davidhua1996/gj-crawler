@@ -145,7 +145,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && crawler.isUseParams()){
 			String portal = InjectUtils.inject(crawler.portal(), params);
-			System.out.println(portal);
 			URL url = new URL(cid, portal);
 			execute(url);
 		}
