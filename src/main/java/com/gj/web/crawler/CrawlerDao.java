@@ -19,5 +19,5 @@ public interface CrawlerDao {
 	 * @param crawlerId
 	 * @return
 	 */
-	public <T extends CrawlerApi> List<T> load(Object cid);
+	public <T extends CrawlerApi> T load(Object cid);
 }

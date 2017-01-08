@@ -119,6 +119,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public synchronized void shutdown() {
 		if(num.get() == 0){
 			isOpen = false;
+			queue.clear();//clear the cache,release the memory
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).close(this);
 			}

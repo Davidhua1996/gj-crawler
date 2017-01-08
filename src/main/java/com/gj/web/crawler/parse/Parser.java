@@ -22,4 +22,8 @@ public interface Parser {
 	 * @param result
 	 */
 	public void callback(ResultModel result);
+	
+	public Callback getCallback();
+	
+	public void setCallback(Callback callback);
 }

@@ -21,7 +21,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	/**
 	 * Data Access Object for Crawler
 	 */
-	private CrawlerDao dao = null;
+	protected CrawlerDao dao = null;
 	private CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 
 	public void open() {
@@ -73,6 +73,15 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public Integer getMaxFree() {
 		return pool.getMaxFree();
 	}
+	
+	public CrawlerDao getDao() {
+		return dao;
+	}
+
+	public void setDao(CrawlerDao dao) {
+		this.dao = dao;
+	}
+
 	/**
 	 * start to open the pool after setting the properties
 	 */

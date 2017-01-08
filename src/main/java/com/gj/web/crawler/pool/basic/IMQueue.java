@@ -72,6 +72,9 @@ public class IMQueue<T> implements Queue<T>{
 	public boolean isEmpty() {
 		return size <=0;
 	}
+	public void clear() {
+		this.record.clear();
+	}
 	public static void main(String[] args) {
 		Queue<Integer> queue = new IMQueue<Integer>();
 		queue.push(2);

@@ -2,6 +2,7 @@ package com.gj.web.crawler;
 
 import java.util.List;
 
+import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.URL;
 
 public interface CrawlerApi {
@@ -43,4 +44,9 @@ public interface CrawlerApi {
 	 * @return
 	 */
 	public boolean isSimulate();
+	/**
+	 * return Parser
+	 * @return
+	 */
+	public Parser getParser();
 }

@@ -41,7 +41,7 @@ public class CrawlerDemo{
 		 * identify:是否带唯一标识（会以带唯一标识的属性名创建子文件夹，例：/usr/tmp/{name}）
 		 */
 		Map<String,String> patterns = new HashMap<String,String>();
-		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
+//		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
 		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
 		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
 		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'true'}");

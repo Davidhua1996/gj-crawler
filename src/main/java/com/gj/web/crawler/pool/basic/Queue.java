@@ -30,4 +30,8 @@ public interface Queue<T> {
 	 *is empty
 	 */
 	public boolean isEmpty();
+	/**
+	 * clear the cache
+	 */
+	public void clear();
 }

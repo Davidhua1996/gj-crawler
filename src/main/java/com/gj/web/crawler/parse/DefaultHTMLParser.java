@@ -186,5 +186,11 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	public void callback(ResultModel result) {
 		callback.callback(result);
 	}
+	public Callback getCallback() {
+		return callback;
+	}
+	public void setCallback(Callback callback) {
+		this.callback = callback;
+	}
 	
 }
