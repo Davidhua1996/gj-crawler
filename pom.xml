@@ -79,6 +79,16 @@
 		<artifactId>commons-pool</artifactId>
 		<version>1.6</version>
 	</dependency>
+	<dependency>
+		<groupId>org.mapdb</groupId>
+		<artifactId>mapdb</artifactId>
+		<version>3.0.2</version>
+	</dependency>
+	<dependency>
+    	<groupId>org.mapdb</groupId>
+    	<artifactId>mapdb</artifactId>
+    	<version>1.0.9</version>
+	</dependency>
 	<!-- <dependency>
 	    <groupId>org.seleniumhq.selenium</groupId>
 	    <artifactId>selenium-htmlunit-driver</artifactId>

@@ -19,7 +19,7 @@ public class CrawlerDemo{
 	public static void crawler1(){
 		Crawler crawler = new Crawler();//初始化爬虫类
 		crawler.setLazy(false);//设置为非懒加载（爬虫池一打开就开始）
-		crawler.setSimulate(true);
+//		crawler.setSimulate(true);
 		crawler.setPortal("http://store.steampowered.com/search/?sort_by=Released_DESC&tags=-1");//设置入口链接
 		//设置允许继续爬取的链接，用于对页面上链接进行匹配，注意为正则表达式，对特殊符号.等用\\.或者[.]
 		crawler.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");
@@ -32,7 +32,9 @@ public class CrawlerDemo{
 		//restrict，顾名思义，限制的意思，只提取页面上限定标签范围内的链接(使得爬虫更有针对性）
 		crawler.setRestrict("*[class=search_pagination],div[id=search_result_container]");
 		DefaultHTMLParser parser = new DefaultHTMLParser();//初始化HTML解析器
-		parser.setDir("/usr/tmp");//设置解析的本地文件夹（用于存储需要下载的文件）
+		//设置解析的本地文件夹目录（用于存储需要下载的文件）
+		parser.setRootDir("/usr");//根目录
+		parser.setChildDir("/steam");//子目录
 		/**
 		 * 设置需要解析的属性，为键值对的形式,键为属性名，值为解析时候用的模式(为json),
 		 * 模式（pattern）：
@@ -53,6 +55,7 @@ public class CrawlerDemo{
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("steam", crawler);
 		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		pool.setUseMapDB(true);
 		pool.setCrawlers(crawlers);
 		pool.open();//打开爬虫池
 	}
@@ -72,7 +75,8 @@ public class CrawlerDemo{
 		crawler.getParseURL().add("http://www.bilibili.com/video/av\\w+");
 		crawler.setRestrict("ul[class=ajax-render]");
 		DefaultHTMLParser parser = new DefaultHTMLParser();
-		parser.setDir("/usr/tmp02");
+		parser.setRootDir("/usr");//根目录
+		parser.setChildDir("/bilibili");//子目录
 		Map<String,String> patterns = new HashMap<String,String>();
 		patterns.put("title", "{exp:'div[class=v-title] h1',type:'text'}");
 		patterns.put("date", "{exp:'time i'}");
@@ -89,6 +93,6 @@ public class CrawlerDemo{
 		}
 	}
 	public static void main(String[] args) {
-		crawler1();
+		crawler2();
 	}
 }

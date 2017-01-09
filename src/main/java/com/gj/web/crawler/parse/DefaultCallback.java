@@ -1,9 +1,15 @@
 package com.gj.web.crawler.parse;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Map.Entry;
 
-public class DefaultCallback implements Callback{
+public class DefaultCallback implements Callback,Serializable{
+	/**
+	 * serialVersionUID
+	 */
+	private static final long serialVersionUID = -7636692919538566692L;
+
 	/**
 	 * EN:suggest that if you do some time-consuming work in the method,
 	 * you'd better to do in new thread

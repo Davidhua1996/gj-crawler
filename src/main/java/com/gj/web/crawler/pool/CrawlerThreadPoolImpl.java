@@ -20,6 +20,7 @@ import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.IMQueue;
+import com.gj.web.crawler.pool.basic.MapDBQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.InjectUtils;
@@ -52,7 +53,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private Queue<URL> queue = new IMQueue<URL>();
 	
-	private boolean useMongoQueue = false;
+	private boolean useMapDB = false;
+	
+	private String mapDir = null;
+	
 	/**
 	 * store crawlers
 	 */
@@ -87,8 +91,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public synchronized void open() {
 		if(!isOpen){
-			if(useMongoQueue){
-				//TODO make a queue to connect MongoDB;
+			if(useMapDB){
+				if(null == mapDir){
+					queue = new MapDBQueue<URL>();
+				}else{
+					queue = new MapDBQueue<URL>(mapDir);
+				}
 			}
 			//open threads
 			isOpen = true;
@@ -124,6 +132,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 				monitors.get(i).close(this);
 			}
 		}
+		System.gc();
 	}
 	public void execute(String cid) {
 		CrawlerApi crawler = crawlers.get(cid);
@@ -252,14 +261,14 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			}
 		}
 	}
-	public boolean isUseMongoQueue() {
-		return useMongoQueue;
-	}
 	
-	public void setUseMongoQueue(boolean useMongoQueue) {
-		this.useMongoQueue = useMongoQueue;
-	}
 	
+	public boolean isUseMapDB() {
+		return useMapDB;
+	}
+	public void setUseMapDB(boolean useMapDB) {
+		this.useMapDB = useMapDB;
+	}
 	public Map<String, CrawlerApi> getCrawlers() {
 		return crawlers;
 	}
@@ -285,4 +294,11 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public void setMonitors(List<Monitor> monitors) {
 		this.monitors = monitors;
 	}
+	public String getMapDir() {
+		return mapDir;
+	}
+	public void setMapDir(String mapDir) {
+		this.mapDir = mapDir;
+	}
+	
 }

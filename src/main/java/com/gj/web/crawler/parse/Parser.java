@@ -26,4 +26,16 @@ public interface Parser {
 	public Callback getCallback();
 	
 	public void setCallback(Callback callback);
+	/**
+	 * the root directory
+	 */
+	public void setRootDir(String rootDir);
+	
+	public String getRootDir();
+	/**
+	 * the child directory
+	 */
+	public void setChildDir(String childDir);
+	
+	public String getChildDir();
 }

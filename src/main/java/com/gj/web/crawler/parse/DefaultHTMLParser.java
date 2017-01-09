@@ -34,7 +34,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	 */
 	private static final long serialVersionUID = -8908288905050348183L;
 
-	private Callback callback = new DefaultCallback();
+	private transient Callback callback = new DefaultCallback();
 	
 	private final String TEMP = "/usr/tmp"; 
 	/**
@@ -42,12 +42,11 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	 */
 	protected boolean usePool = true;
 	
-	/**
-	 * the local path to store temp file
-	 */
-	protected String dir = TEMP;
+	protected String rootDir = "";
 	
-	protected ExecutorService pool = Executors.newCachedThreadPool();
+	protected String childDir = "";
+	
+	protected transient ExecutorService pool = Executors.newCachedThreadPool();
 	
 	protected Map<String,Object> patterns = new ConcurrentHashMap<String,Object>();
 	
@@ -69,6 +68,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	}
 	private void parseMain(Document doc,URL url) {
 		ResultModel model = new ResultModel();
+		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
 		Map<String,URL> urlMap = new HashMap<String,URL>();//to store the URL from parsing which is needed to download
 		String subDir = "/";//the subDir of medias
@@ -97,6 +97,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 				}
 			}
 		}
+		if(! subDir.equals("/") && subDir.length() > 1){
+			subDir += "/";
+		}
 		int index = 0;
 		List<Entry<String,URL>> entrys = 
 				new ArrayList<Entry<String,URL>>(urlMap.entrySet());
@@ -104,11 +107,12 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			Entry<String,URL> entry = entrys.get(i);
 			URL src = entry.getValue();
 			String value = src.getUrl();
-			if(! subDir.equals("/") && subDir.length() > 1){
-				subDir += "/";
+			String loc = null,name = null;
+			File tmpFile = new File(path + subDir);
+			if(tmpFile.exists()){
+				tmpFile.delete();
 			}
-			String loc = null;
-			new File(dir + subDir).mkdirs();
+			tmpFile.mkdirs();
 			String tmpKey = entry.getKey();
 			String key = tmpKey.substring(0,tmpKey.lastIndexOf("_"));
 			if(src.getType().matches("html")){//for type 'html',parse again
@@ -118,9 +122,10 @@ public class DefaultHTMLParser implements Parser,Serializable{
 					Element el = imgs.get(j);
 					URL imgurl = new URL(url.getCid(),el.attr("src"));
 					imgurl.setType("photo");
-					loc = dir + subDir +DataUtils.randomHTTPFileName(imgurl.getUrl(), entrys.size());
+					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), entrys.size());
+					loc = path + subDir + name;
 					imgurl.setLocal(loc);
-					el.attr("src", loc);
+					el.attr("src", childDir+ subDir + name);
 					Entry<String,URL> newEntry = 
 								new AbstractMap.SimpleEntry<String, URL>(tmpKey+"_img_"+j, imgurl);
 					entrys.add(newEntry);
@@ -129,17 +134,22 @@ public class DefaultHTMLParser implements Parser,Serializable{
 				src.setType("text");//change to 'text'
 				entry = new AbstractMap.SimpleEntry<String, URL>(tmpKey,src);
 				entrys.add(entry);
+				continue;
 			}else if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
-				loc = dir + subDir +DataUtils.randomHTTPFileName(null, index);
+				name = DataUtils.randomHTTPFileName(null, index);
+				loc = path + subDir + name;
 				localStore(value,loc);
 			}else{//else put into the pool to crawler
 				if(null == (loc = src.getLocal())){
-					loc = dir + subDir + DataUtils.randomHTTPFileName(value, index);
+					name = DataUtils.randomHTTPFileName(value, index);
+					loc = path + subDir + name;
 					src.setLocal(loc);
+				}else{
+					name = loc.substring(loc.lastIndexOf("/")+1);
 				}
 				CrawlerThreadPoolImpl.getInstance().execute(src);
 			}
-			model.putAndAdd(key,loc);
+			model.putAndAdd(key,childDir + subDir + name);
 			index ++;
 		}
 		doc.empty();
@@ -172,7 +182,6 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			out.getChannel().write(buf);
 			buf.clear();
 		}catch(IOException e){
-			System.out.println(loc);
 			throw new RuntimeException(e);
 		}finally{
 			if(null != out)
@@ -183,6 +192,18 @@ public class DefaultHTMLParser implements Parser,Serializable{
 				}
 			buf.clear();
 		}
+	}
+	public String path(){//concat(rootDir,childDir)
+		String path = "";
+		if(rootDir.trim().equals("") 
+				&& childDir.trim().equals("")){
+			path = TEMP;
+		}else if(!rootDir.endsWith("/") && !childDir.startsWith("/")){
+			path = rootDir + "/" + childDir;
+		}else{
+			path = rootDir + childDir;
+		}
+		return path;
 	}
 	public boolean isUsePool() {
 		return usePool;
@@ -196,12 +217,6 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		return patterns;
 	}
 	
-	public String getDir() {
-		return dir;
-	}
-	public void setDir(String dir) {
-		this.dir = dir;
-	}
 	public void setPatterns(Map<String, String> patterns) {
 		this.patterns.clear();
 		for(Entry<String,String> entry : patterns.entrySet()){
@@ -218,6 +233,24 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	}
 	public void setCallback(Callback callback) {
 		this.callback = callback;
+	}
+	public void setRootDir(String rootDir) {
+		if(null == rootDir){
+			throw new IllegalArgumentException("rootDir cannot be null");
+		}
+		this.rootDir = rootDir;
+	}
+	public String getRootDir() {
+		return rootDir;
+	}
+	public void setChildDir(String childDir) {
+		if(null == childDir){
+			throw new IllegalArgumentException("childDir cannot be null");
+		}
+		this.childDir = childDir;
+	}
+	public String getChildDir() {
+		return childDir;
 	}
 	
 }
