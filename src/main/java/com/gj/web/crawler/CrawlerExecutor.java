@@ -81,7 +81,9 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public void setDao(CrawlerDao dao) {
 		this.dao = dao;
 	}
-
+	public List<CrawlerApi> loadAll(){
+		return this.dao.loadAll();
+	}
 	/**
 	 * start to open the pool after setting the properties
 	 */
@@ -89,7 +91,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		if(!pool.isOpen()){
 			if(null != dao){
 				Map<String,CrawlerApi> map = pool.getCrawlers();
-				List<CrawlerApi> crawlers = dao.loadAll();
+				List<CrawlerApi> crawlers = loadAll();
 				for(int i = 0;i<crawlers.size();i++){
 					CrawlerApi crawler = crawlers.get(i);
 					map.put((String)crawler.getId(), crawler);

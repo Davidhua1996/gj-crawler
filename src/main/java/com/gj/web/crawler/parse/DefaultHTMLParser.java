@@ -5,11 +5,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -94,7 +98,10 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			}
 		}
 		int index = 0;
-		for(Entry<String,URL> entry : urlMap.entrySet()){
+		List<Entry<String,URL>> entrys = 
+				new ArrayList<Entry<String,URL>>(urlMap.entrySet());
+		for(int i = 0;i < entrys.size(); i++){
+			Entry<String,URL> entry = entrys.get(i);
 			URL src = entry.getValue();
 			String value = src.getUrl();
 			if(! subDir.equals("/") && subDir.length() > 1){
@@ -102,14 +109,34 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			}
 			String loc = null;
 			new File(dir + subDir).mkdirs();
-			String key = entry.getKey();
-			key = key.substring(0,key.indexOf("_"));
-			if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
+			String tmpKey = entry.getKey();
+			String key = tmpKey.substring(0,tmpKey.lastIndexOf("_"));
+			if(src.getType().matches("html")){//for type 'html',parse again
+				Document htmlNode = Jsoup.parse(value);
+				Elements imgs = htmlNode.select("img");//search all 'img' elements
+				for(int j = 0;j<imgs.size();j++){
+					Element el = imgs.get(j);
+					URL imgurl = new URL(url.getCid(),el.attr("src"));
+					imgurl.setType("photo");
+					loc = dir + subDir +DataUtils.randomHTTPFileName(imgurl.getUrl(), entrys.size());
+					imgurl.setLocal(loc);
+					el.attr("src", loc);
+					Entry<String,URL> newEntry = 
+								new AbstractMap.SimpleEntry<String, URL>(tmpKey+"_img_"+j, imgurl);
+					entrys.add(newEntry);
+				}
+				src.setUrl(htmlNode.html());
+				src.setType("text");//change to 'text'
+				entry = new AbstractMap.SimpleEntry<String, URL>(tmpKey,src);
+				entrys.add(entry);
+			}else if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
 				loc = dir + subDir +DataUtils.randomHTTPFileName(null, index);
 				localStore(value,loc);
 			}else{//else put into the pool to crawler
-				loc = dir + subDir + DataUtils.randomHTTPFileName(value, index);
-				src.setLocal(loc);
+				if(null == (loc = src.getLocal())){
+					loc = dir + subDir + DataUtils.randomHTTPFileName(value, index);
+					src.setLocal(loc);
+				}
 				CrawlerThreadPoolImpl.getInstance().execute(src);
 			}
 			model.putAndAdd(key,loc);
@@ -125,9 +152,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		if(type.matches("(photo)|(video)")){
 			value = el.attr(attr!=null?attr:"src");
 		}else if(type.matches("text")){
-			value = attr!=null?el.attr(attr):el.html();//not to use method text() for keeping the HTML tag
+			value = attr!=null?el.attr(attr):el.text();//not to use method text() for keeping the HTML tag
 		}else if(type.matches("html")){
-			value = el.attr(attr!=null?attr:"href");
+			value = attr!=null?el.attr(attr):el.html();
 		}else{
 			throw new RuntimeException("unknow type:"+type+" in pattern!");
 		}

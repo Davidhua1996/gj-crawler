@@ -19,6 +19,7 @@ public class CrawlerDemo{
 	public static void crawler1(){
 		Crawler crawler = new Crawler();//初始化爬虫类
 		crawler.setLazy(false);//设置为非懒加载（爬虫池一打开就开始）
+		crawler.setSimulate(true);
 		crawler.setPortal("http://store.steampowered.com/search/?sort_by=Released_DESC&tags=-1");//设置入口链接
 		//设置允许继续爬取的链接，用于对页面上链接进行匹配，注意为正则表达式，对特殊符号.等用\\.或者[.]
 		crawler.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");
@@ -46,6 +47,7 @@ public class CrawlerDemo{
 		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
 		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'true'}");
 		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text',download:'true'}");
+		patterns.put("content", "{exp:'div[id=highlight_strip]',type:'html',download:'true'}");
 		parser.setPatterns(patterns);
 		crawler.setParser(parser);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
@@ -87,6 +89,6 @@ public class CrawlerDemo{
 		}
 	}
 	public static void main(String[] args) {
-		crawler2();
+		crawler1();
 	}
 }
