@@ -93,6 +93,6 @@ public class CrawlerDemo{
 		}
 	}
 	public static void main(String[] args) {
-		crawler2();
+		crawler1();
 	}
 }

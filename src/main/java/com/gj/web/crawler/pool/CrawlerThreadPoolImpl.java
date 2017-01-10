@@ -24,6 +24,7 @@ import com.gj.web.crawler.pool.basic.MapDBQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.InjectUtils;
+import com.gj.web.crawler.utils.MapDBContext;
 
 /**
  * do make a single pool to manager the crawler threads
@@ -54,8 +55,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private Queue<URL> queue = new IMQueue<URL>();
 	
 	private boolean useMapDB = false;
-	
-	private String mapDir = null;
 	
 	/**
 	 * store crawlers
@@ -92,11 +91,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public synchronized void open() {
 		if(!isOpen){
 			if(useMapDB){
-				if(null == mapDir){
-					queue = new MapDBQueue<URL>();
-				}else{
-					queue = new MapDBQueue<URL>(mapDir);
-				}
+				queue = new MapDBQueue<URL>();
 			}
 			//open threads
 			isOpen = true;
@@ -131,6 +126,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).close(this);
 			}
+			MapDBContext.commit();
 		}
 		System.gc();
 	}
@@ -293,12 +289,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public void setMonitors(List<Monitor> monitors) {
 		this.monitors = monitors;
-	}
-	public String getMapDir() {
-		return mapDir;
-	}
-	public void setMapDir(String mapDir) {
-		this.mapDir = mapDir;
 	}
 	
 }

@@ -21,11 +21,16 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.HTreeMap;
+
 import com.gj.web.crawler.http.utils.DataUtils;
 import com.gj.web.crawler.parse.json.JsonUtils;
 import com.gj.web.crawler.parse.json.Pattern;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.utils.MapDBContext;
 
 public class DefaultHTMLParser implements Parser,Serializable{
 	
@@ -33,7 +38,15 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	 * serialVersionUID
 	 */
 	private static final long serialVersionUID = -8908288905050348183L;
-
+	
+	private static final String PARSER_NAME = "parse";
+	
+	private static  HTreeMap<String,Object> parserMap = null;
+	 
+	static{
+		parserMap = MapDBContext.getDB().getHashMap(PARSER_NAME);
+	}
+	
 	private transient Callback callback = new DefaultCallback();
 	
 	private final String TEMP = "/usr/tmp"; 
@@ -54,7 +67,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		parse(Jsoup.parse(html),url);
 	}
 	public void parse(final Document doc,final URL url) {
-		if(null != doc){
+		if(null != doc && null == parserMap.putIfAbsent(url.getUrl(),1)){
 			if(usePool){
 				pool.execute(new Runnable() {
 					public void run() {
@@ -70,7 +83,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		ResultModel model = new ResultModel();
 		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
-		Map<String,URL> urlMap = new HashMap<String,URL>();//to store the URL from parsing which is needed to download
+		Map<String,URL> download = new HashMap<String,URL>();//to store the URL from parsing which is needed to download
 		String subDir = "/";//the subDir of medias
 		for(Entry<String,Object> entry : patterns.entrySet()){
 			Pattern pattern = (Pattern) entry.getValue();
@@ -90,7 +103,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 					if(pattern.isDownload() && type.matches("(photo)|(video)|(html)|(text)")){
 						URL src = new URL(url.getCid(),value);
 						src.setType(type);
-						urlMap.put(key+"_"+i, src);
+						download.put(key+"_"+i, src);
 					}else{
 						model.putAndAdd(key, value);
 					}
@@ -99,20 +112,20 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		}
 		if(! subDir.equals("/") && subDir.length() > 1){
 			subDir += "/";
+			File tmpFile = new File(path + subDir);
+			if(tmpFile.exists() && tmpFile.isDirectory()){
+				return;
+			}
+			tmpFile.mkdirs();
 		}
 		int index = 0;
 		List<Entry<String,URL>> entrys = 
-				new ArrayList<Entry<String,URL>>(urlMap.entrySet());
+				new ArrayList<Entry<String,URL>>(download.entrySet());
 		for(int i = 0;i < entrys.size(); i++){
 			Entry<String,URL> entry = entrys.get(i);
 			URL src = entry.getValue();
 			String value = src.getUrl();
 			String loc = null,name = null;
-			File tmpFile = new File(path + subDir);
-			if(tmpFile.exists()){
-				tmpFile.delete();
-			}
-			tmpFile.mkdirs();
 			String tmpKey = entry.getKey();
 			String key = tmpKey.substring(0,tmpKey.lastIndexOf("_"));
 			if(src.getType().matches("html")){//for type 'html',parse again
@@ -155,6 +168,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		doc.empty();
 		//invoke callback method
 		callback(model);
+		System.gc();
 		model.inner.clear();
 	}
 	private String parseElement(Element el,String type,String attr){
@@ -252,5 +266,4 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	public String getChildDir() {
 		return childDir;
 	}
-	
 }

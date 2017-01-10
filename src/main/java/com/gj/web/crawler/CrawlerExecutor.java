@@ -93,14 +93,6 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public boolean isUseMapDB() {
 		return pool.isUseMapDB();
 	}
-	
-	public String getMapDir() {
-		return pool.getMapDir();
-	}
-
-	public void setMapDir(String mapDir) {
-		pool.setMapDir(mapDir);
-	}
 	/**
 	 * start to open the pool after setting the properties
 	 */

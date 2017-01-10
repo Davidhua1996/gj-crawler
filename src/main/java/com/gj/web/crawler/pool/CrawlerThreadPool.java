@@ -66,11 +66,4 @@ public interface CrawlerThreadPool extends ThreadPool{
 	public void setUseMapDB(boolean DB);
 	
 	public boolean isUseMapDB();
-	/**
-	 * the dir of mapDB
-	 * @return
-	 */
-	public String getMapDir();
-	
-	public void setMapDir(String mapDir);
 }
