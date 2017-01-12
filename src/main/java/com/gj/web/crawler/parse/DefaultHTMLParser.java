@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,8 +17,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -29,6 +36,7 @@ import com.gj.web.crawler.http.utils.DataUtils;
 import com.gj.web.crawler.parse.json.JsonUtils;
 import com.gj.web.crawler.parse.json.Pattern;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
+import com.gj.web.crawler.pool.basic.DBType;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.MapDBContext;
 
@@ -41,13 +49,20 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	
 	private static final String PARSER_NAME = "parse";
 	
-	private static  HTreeMap<String,Object> parserMap = null;
-	 
-	static{
-		parserMap = MapDBContext.getDB().getHashMap(PARSER_NAME);
-	}
+	private static final Integer COMMIT_PER_COUNT = 200;
+	
+	private static  HTreeMap<String,Object> pmap = null;
+	
+	private static final String DB_NAME_PRFIX = "map_db_";
+	
+	private static final String DFAULT_DB_NAME = "temp";
+	private DB db = null;
+	
+	private Object id = null;;
 	
 	private transient Callback callback = new DefaultCallback();
+	
+	private List<Object> store = new CopyOnWriteArrayList<Object>();
 	
 	private final String TEMP = "/usr/tmp"; 
 	/**
@@ -55,27 +70,49 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	 */
 	protected boolean usePool = true;
 	
+	protected volatile int count = 0;
+	
 	protected String rootDir = "";
 	
 	protected String childDir = "";
 	
-	protected transient ExecutorService pool = Executors.newCachedThreadPool();
+	protected transient ExecutorService pool = null;
 	
 	protected Map<String,Object> patterns = new ConcurrentHashMap<String,Object>();
+	
+	public DefaultHTMLParser(){
+		this(DFAULT_DB_NAME);
+	}
+	
+	public DefaultHTMLParser(Object id){
+		pool = new ThreadPoolExecutor(5, 10, 30, 
+				TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), 
+				new ThreadPoolExecutor.CallerRunsPolicy());
+		if(null == this.id){
+			this.id = id;
+		}
+		db = MapDBContext.getDB(DB_NAME_PRFIX+this.id,DBType.FILE);
+		pmap = db.getHashMap(PARSER_NAME);
+		count = pmap.size() + COMMIT_PER_COUNT;
+	}
 	
 	public void parse(String html,URL url) {
 		parse(Jsoup.parse(html),url);
 	}
 	public void parse(final Document doc,final URL url) {
-		if(null != doc && null == parserMap.putIfAbsent(url.getUrl(),1)){
-			if(usePool){
-				pool.execute(new Runnable() {
-					public void run() {
-						parseMain(doc,url);
-					}
-				});
-			}else{
-				parseMain(doc,url);
+		if(null != doc && null == pmap.putIfAbsent(url.getUrl(),1)){
+			try{
+				if(usePool){
+					pool.execute(new Runnable() {
+						public void run() {
+							parseMain(doc,url);
+						}
+					});
+				}else{
+					parseMain(doc,url);
+				}
+			}catch(Exception e){//catch the exception thrown from parsing process
+				//TODO Logger
 			}
 		}
 	}
@@ -112,11 +149,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		}
 		if(! subDir.equals("/") && subDir.length() > 1){
 			subDir += "/";
-			File tmpFile = new File(path + subDir);
-			if(tmpFile.exists() && tmpFile.isDirectory()){
-				return;
-			}
-			tmpFile.mkdirs();
+			File parent = new File(path + subDir);
+			deleteRec(parent);
+			parent.mkdirs();
 		}
 		int index = 0;
 		List<Entry<String,URL>> entrys = 
@@ -166,10 +201,14 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			index ++;
 		}
 		doc.empty();
-		//invoke callback method
-		callback(model);
-		System.gc();
+		//invoke resolve method in callback
+		Object resolvedObj = resolve(model);
 		model.inner.clear();
+		if(null != resolvedObj){//store in-memory in temporary
+			store.add(resolvedObj);
+		}
+		pcommit();
+		System.gc();
 	}
 	private String parseElement(Element el,String type,String attr){
 		String value = null;
@@ -219,6 +258,43 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		}
 		return path;
 	}
+	private void pcommit(){
+		if(pmap.size() >= count){
+			pcommit0();
+		}
+	}
+	private synchronized void pcommit0(){
+		if(pmap.size() >= count){
+			try{
+				db.commit();
+				if(store.size() > 0){
+					callback.persist(store);
+				}
+				store.clear();
+				count += COMMIT_PER_COUNT;
+			}catch(Exception e){
+				db.rollback();
+				//TODO Logger
+			}finally{
+				System.gc();
+			}
+		}
+	}
+	private void deleteRec(final File parent){
+		if(parent.exists() && parent.isDirectory()){
+			File[] childs = parent.listFiles();
+			for(int i = 0;i < childs.length; i++){
+				deleteRec(childs[i]);
+			}
+		}else if(parent.exists()){
+			AccessController.doPrivileged(new PrivilegedAction<Object>() {
+				public Object run() {
+					parent.delete();
+					return null;
+				}
+			});
+		}
+	}
 	public boolean isUsePool() {
 		return usePool;
 	}
@@ -239,8 +315,16 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			this.patterns.put(entry.getKey(), pattern);
 		}
 	}
-	public void callback(ResultModel result) {
-		callback.callback(result);
+	public Object resolve(ResultModel result) {
+		return callback.resolve(result);
+	}
+	public void persist(){
+		if(store.size() > 0){
+			callback.persist(store);
+		}
+	}
+	public boolean isParsed(URL url) {
+		return pmap.containsKey(url.getUrl());
 	}
 	public Callback getCallback() {
 		return callback;
@@ -266,4 +350,11 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	public String getChildDir() {
 		return childDir;
 	}
+	public Object getId() {
+		return id;
+	}
+	public void setId(Object id) {
+		this.id = id;
+	}
+	
 }

@@ -35,7 +35,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int MAX_POOL_SIZE = 100;
 	
-	private static final int MAX_FREE_TIME = 1000*15;
+	private static final int MAX_FREE_TIME = 1000*16;
 	
 	private static CrawlerThreadPool pool;
 	/**
@@ -123,10 +123,13 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		if(num.get() == 0){
 			isOpen = false;
 			queue.clear();//clear the cache,release the memory
+			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
+				CrawlerApi crawler = entry.getValue();
+				crawler.getParser().persist();//persist the collection in-memory in parser
+			}
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).close(this);
 			}
-			MapDBContext.commit();
 		}
 		System.gc();
 	}
@@ -138,10 +141,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		}
 	}
 	public void execute(URL url) {
+		if(!isOpen) open();//open
 		poolLock.lock();
 		try{
 			queue.pushWithKey(url,url.getUrl());//duplicate removal
-			fixCapacity();
 			notEmpty.signal();//TODO choose to use signal() or signalAll()?
 		}finally{
 			poolLock.unlock();
@@ -170,7 +173,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		poolLock.lock();
 		try{
 			queue.push(url);//retry
-			fixCapacity();
 			notEmpty.signal();//TODO choose to use signal() or signalAll()?
 		}finally{
 			poolLock.unlock();
@@ -182,10 +184,18 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private void fixCapacity(){
 		int actNum = num.get();
 		long queueNum = this.queue.size();
-		if(actNum < poolSize && queueNum > 0 && actNum/queueNum < 1){
-			Worker worker = new Worker();
-			new Thread(worker).start();
-			num.incrementAndGet();
+		if(queueNum < 0 || actNum <0){
+			this.isOpen = false;
+			//TODO LOGGER
+			System.out.println("错误发生: actNum:"+actNum+" queueNum:"+queueNum);
+		}
+		if(actNum < poolSize && actNum >0 & queueNum > 0 && actNum/queueNum < 1){
+			System.out.println("创建新线程:"+(queueNum - actNum));
+			for(int i = 0;i<queueNum - actNum;i++){
+				Worker worker = new Worker();
+				new Thread(worker).start();
+				num.incrementAndGet();
+			}
 		}
 	}
 	private class Worker implements Runnable {
@@ -208,6 +218,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					}
 					if(bool){
 						url = queue.poll();
+						fixCapacity();
 					}
 				}finally{
 					poolLock.unlock();
@@ -235,7 +246,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					}catch(Exception ex){
 						Throwable root = ex;
 						while( root.getCause() != null){
-							root = root.getCause();						}
+							root = root.getCause();
+						}
 						if(root instanceof SocketTimeoutException){
 							System.out.println("timeout error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
 							executeWithKeyNot(url);

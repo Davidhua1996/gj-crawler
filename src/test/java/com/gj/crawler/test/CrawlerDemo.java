@@ -45,11 +45,16 @@ public class CrawlerDemo{
 		 */
 		Map<String,String> patterns = new HashMap<String,String>();
 //		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
-		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
-		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
-		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'true'}");
-		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text',download:'true'}");
-		patterns.put("content", "{exp:'div[id=highlight_strip]',type:'html',download:'true'}");
+//		patterns.put("picture", "{exp:'img[class=game_header_image_full]',type:'photo',download:'true'}");
+//		patterns.put("configuration", "{exp:'div[class~=game_area_sys_req sysreq_content.*] div:eq(0)',type:'text'}");
+		patterns.put("name", "{exp:'div[class=apphub_AppName]',identify:'false'}");
+		patterns.put("description","{exp:'div[class=game_description_snippet]',type:'text'}");
+		patterns.put("pub", "{exp:'a[href~=http[:]//store[.]steampowered[.]com/search/[?]publisher=.*]',type:'text'}");
+		patterns.put("pub_date_str", "{exp:'div[class=release_date] span'}");
+//		patterns.put("price", "{exp:'div[class=discount_prices]',type:'text'}");
+		patterns.put("cn_support_str", "{exp:'b:contains(不支持简体中文)'}");
+//		patterns.put("","");
+//		patterns.put("content", "{exp:'div[id=highlight_strip]',type:'html',download:'true'}");
 		parser.setPatterns(patterns);
 		crawler.setParser(parser);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();

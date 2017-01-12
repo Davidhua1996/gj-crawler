@@ -81,9 +81,9 @@ public class Crawler implements CrawlerApi,Serializable{
 	
 	private volatile Integer num = 0;
 	
-	private ReentrantLock crawlLock = new ReentrantLock();
+	private transient ReentrantLock crawlLock = new ReentrantLock();
 	
-	private Condition notLimit = crawlLock.newCondition();
+	private transient Condition notLimit = crawlLock.newCondition();
 	
 	private boolean lazy = true;
 	
@@ -91,18 +91,22 @@ public class Crawler implements CrawlerApi,Serializable{
 	 * contains the specific program of parsing HTML,
 	 * such as parameter mapping
 	 */
-	protected Parser parser = new DefaultHTMLParser();
+	protected Parser parser = null;
 	
-	private SoftReferenceObjectPool<WebClient> softPool = 
+	private transient SoftReferenceObjectPool<WebClient> softPool = 
 			new SoftReferenceObjectPool<WebClient>(new WebClientPooledFactory());
 	/**
 	 * crawl HTML page
 	 * return the URLs crawled
 	 */
 	public List<URL> crawlHTML(URL url){
+		List<URL> urls = new ArrayList<URL>();
+		boolean parsable = isParsable(url.getUrl());
+		if(parsable && parser.isParsed(url)){
+			return urls;
+		}
 		begin();
 		Document store = null;
-		List<URL> urls = new ArrayList<URL>();
 		try{
 			String body = null;
 			if(simulate){//simulate browser to load script,but maybe too low
@@ -111,10 +115,10 @@ public class Crawler implements CrawlerApi,Serializable{
 				Response response = connectAndResponse(url);
 				body = response.body();
 			}
-			if(null != body){
+			if(null != body && !body.trim().equals("")){
 				Document document = Jsoup.parse(body);
 				body = null;//release memory immediately
-				if(isParsable(url.getUrl())){
+				if(parsable){
 					store = document;
 				}else{
 					Elements elements = null;
@@ -136,14 +140,14 @@ public class Crawler implements CrawlerApi,Serializable{
 						urls.add(new URL(null,urlStr));
 					}
 				}
+				if(null != store && null != parser){
+					parser.parse(store,url);//the entrance API of parsing
+				}
 			}
 		}catch(Exception e){
 			throw new RuntimeException(e);
 		}finally{
 			end();
-		}
-		if(null != store){
-			parser.parse(store,url);//the entrance API of parsing
 		}
 		return urls;
 	}

@@ -1,5 +1,7 @@
 package com.gj.web.crawler.parse;
 
+import java.util.List;
+
 import org.jsoup.nodes.Document;
 
 import com.gj.web.crawler.Crawler;
@@ -17,11 +19,16 @@ public interface Parser {
 	 */
 	public void parse(Document doc,URL url);
 	/**
-	 * call-back method
+	 * resolve method(resolve the result from parsing)
 	 * it will be invoked once parsing program ends
 	 * @param result
 	 */
-	public void callback(ResultModel result);
+	public Object resolve(ResultModel result);
+	/**
+	 * persist the collection in-memory
+	 * @param store
+	 */
+	public void persist();
 	
 	public Callback getCallback();
 	
@@ -38,4 +45,6 @@ public interface Parser {
 	public void setChildDir(String childDir);
 	
 	public String getChildDir();
+	
+	public boolean isParsed(URL url);
 }

@@ -67,6 +67,27 @@ public class ResultModel implements Serializable{
 		}
 		return null;
 	}
+	public Short getShort(String key){
+		Object[] obj = inner.get(key);
+		if(null != obj && obj.length > 0){
+			return new Short(obj[0].toString());
+		}
+		return null;
+	}
+	public Boolean getBoolean(String key){
+		Object[] obj = inner.get(key);
+		if(null != obj && obj.length > 0){
+			return new Boolean(obj[0].toString());
+		}
+		return null;
+	}
+	public Float getFloat(String key){
+		Object[] obj = inner.get(key);
+		if(null != obj && obj.length > 0){
+			return new Float(obj[0].toString());
+		}
+		return null;
+	}
 	public Long getDate(String key){//maybe it is in need
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
