@@ -32,6 +32,7 @@ public class CrawlerDemo{
 		//restrict，顾名思义，限制的意思，只提取页面上限定标签范围内的链接(使得爬虫更有针对性）
 		crawler.setRestrict("*[class=search_pagination],div[id=search_result_container]");
 		DefaultHTMLParser parser = new DefaultHTMLParser();//初始化HTML解析器
+		parser.setId("steam");
 		//设置解析的本地文件夹目录（用于存储需要下载的文件）
 		parser.setRootDir("/usr");//根目录
 		parser.setChildDir("/steam");//子目录

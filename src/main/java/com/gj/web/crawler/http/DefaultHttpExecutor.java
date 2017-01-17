@@ -48,6 +48,7 @@ public class DefaultHttpExecutor extends HttpExecutor {
 			con.setInstanceFollowRedirects(true);//allow the redirects with response code 3xx
 			con.setDoOutput(false);//for crawler,don't use method POST or PUT
 			con.setDoInput(true);
+			con.setUseCaches(true);//use cache
 			con.setRequestMethod("GET");
 			return con;
 		} catch (IOException e) {

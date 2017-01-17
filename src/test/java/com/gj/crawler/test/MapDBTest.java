@@ -8,24 +8,23 @@ import org.mapdb.HTreeMap;
 import org.mapdb.Serializer;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.gj.web.crawler.utils.MapDBContext;
 
 public class MapDBTest {
 	public static void main(String[] args) throws Exception {
-		File file = new File("/usr/cache/");
-		file.mkdirs();
-//		if(!file.exists()){
-//			file.createNewFile();
-//		}
-		DB db = DBMaker.newFileDB(new File("/usr/cache/mapDB"))
-						.closeOnJvmShutdown()
-						.transactionDisable()
-						.compressionEnable().make();
-		HTreeMap<String, String> b = db.createHashMap("cache")
-			.keySerializer(Serializer.STRING)
-			.valueSerializer(Serializer.STRING).make();
-		for(int i = 0;i<10;i++){
-			b.put(String.valueOf(i), String.valueOf(i));
-		}
-		b.close();
+		File directory = new File("/usr/mapDB/");
+		directory.mkdirs();
+		DB db = DBMaker.newFileDB(new File("/usr/mapDB/","map_db_temp"))
+				.cacheSize(100)
+				.closeOnJvmShutdown()
+				.compressionEnable()
+				.asyncWriteFlushDelay(1000).make();
+		HTreeMap<String, String> b = db.getHashMap("parse");
+		long current = System.currentTimeMillis();
+		System.out.println(b.size());
+		System.out.println(System.currentTimeMillis() - current);
+		current = System.currentTimeMillis();
+		b.containsKey("http:steam.cseradf");
+		System.out.println(System.currentTimeMillis() - current);
 	}
 }

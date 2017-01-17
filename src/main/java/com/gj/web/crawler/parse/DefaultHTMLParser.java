@@ -32,6 +32,7 @@ import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gj.web.crawler.http.utils.DataUtils;
 import com.gj.web.crawler.parse.json.JsonUtils;
 import com.gj.web.crawler.parse.json.Pattern;
@@ -56,10 +57,13 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	private static final String DB_NAME_PRFIX = "map_db_";
 	
 	private static final String DFAULT_DB_NAME = "temp";
-	private DB db = null;
 	
 	private Object id = null;;
 	
+	@JsonIgnore
+	private transient DB db = null;
+	
+	@JsonIgnore
 	private transient Callback callback = new DefaultCallback();
 	
 	private List<Object> store = new CopyOnWriteArrayList<Object>();
@@ -81,28 +85,45 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	protected Map<String,Object> patterns = new ConcurrentHashMap<String,Object>();
 	
 	public DefaultHTMLParser(){
-		this(DFAULT_DB_NAME);
+		
 	}
 	
 	public DefaultHTMLParser(Object id){
-		pool = new ThreadPoolExecutor(5, 10, 30, 
-				TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), 
-				new ThreadPoolExecutor.CallerRunsPolicy());
-		if(null == this.id){
-			this.id = id;
+		init(id);
+	}
+	
+	private synchronized void init(Object id){
+		if(null == db || null == pmap){
+			if(null == this.id){
+				this.id = id;
+			}
+			db = MapDBContext.getDB(DB_NAME_PRFIX+this.id,DBType.FILE);
+			pmap = db.getHashMap(PARSER_NAME);
+			count = pmap.size() + COMMIT_PER_COUNT;	
 		}
-		db = MapDBContext.getDB(DB_NAME_PRFIX+this.id,DBType.FILE);
-		pmap = db.getHashMap(PARSER_NAME);
-		count = pmap.size() + COMMIT_PER_COUNT;
+	}
+	
+	private synchronized void openPool(){
+		if(null == pool){
+			pool = new ThreadPoolExecutor(2, 5, 30, 
+					TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), 
+					new ThreadPoolExecutor.CallerRunsPolicy());
+		}
 	}
 	
 	public void parse(String html,URL url) {
 		parse(Jsoup.parse(html),url);
 	}
 	public void parse(final Document doc,final URL url) {
+		if(null == db || null == pmap){
+			init(this.id);
+		}
 		if(null != doc && null == pmap.putIfAbsent(url.getUrl(),1)){
 			try{
 				if(usePool){
+					if(null == pool){
+						openPool();
+					}
 					pool.execute(new Runnable() {
 						public void run() {
 							parseMain(doc,url);
@@ -324,6 +345,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		}
 	}
 	public boolean isParsed(URL url) {
+		if(null == pmap){
+			init(this.id);
+		}
 		return pmap.containsKey(url.getUrl());
 	}
 	public Callback getCallback() {

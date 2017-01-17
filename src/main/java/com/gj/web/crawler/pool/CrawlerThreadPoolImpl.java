@@ -1,6 +1,7 @@
 package com.gj.web.crawler.pool;
 
 import java.io.IOException;
+import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -249,8 +250,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 							root = root.getCause();
 						}
 						if(root instanceof SocketTimeoutException){
-							System.out.println("timeout error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
+							System.out.println("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal());
 							executeWithKeyNot(url);
+						}else if(root instanceof ProtocolException){
+							System.out.println("protocal exception :"+root.getMessage());
 						}else if(root instanceof IOException){
 							System.out.println("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" \nmessage:"+root.getMessage());
 							executeWithKeyNot(url);
