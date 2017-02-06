@@ -14,10 +14,19 @@ public class URL {
 	private long order = 0;
 	//the location on disk for downloading
 	private String local = null;
+	//extended data
+	private byte[] payload = null;
+	//to record the retry count
+	private volatile int retry = 0;
 	public URL(String cid, String url){
 		this.cid = cid;
 		this.url = url;
 		this.order = System.currentTimeMillis();
+	}
+	public URL(String cid, String url, byte[] payload){
+		this.cid = cid;
+		this.url = url;
+		this.payload = payload;
 	}
 	public String get_id() {
 		return _id;
@@ -61,5 +70,16 @@ public class URL {
 	public void setLocal(String local) {
 		this.local = local;
 	}
-	
+	public int getRetry() {
+		return retry;
+	}
+	public void setRetry(int retry) {
+		this.retry = retry;
+	}
+	public byte[] getPayload() {
+		return payload;
+	}
+	public void setPayload(byte[] payload) {
+		this.payload = payload;
+	}
 }

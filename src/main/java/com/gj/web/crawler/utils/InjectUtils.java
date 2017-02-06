@@ -19,8 +19,11 @@ public class InjectUtils {
 	private static final Pattern regex = Pattern.compile(
 			"("+ASSIGN_SYMBOL+"{0,1})"+
 			PARAMETER_PREFIX+
-			"\\{([\\w]{1,})[|]{0,1}([^}]*)\\}?");
-	public static String inject(String pattern,Object[] params){
+			"\\{([^}]{1,})[|]{0,1}([^}]*)\\}?");
+	public static String inject(String pattern, Object[] params){
+		return inject(pattern,params,true);
+	}
+	public static String inject(String pattern,Object[] params,boolean encode){
 		Matcher matcher = regex.matcher(pattern);
 		StringBuffer sb = new StringBuffer();
 		int offset = 0;
@@ -28,16 +31,18 @@ public class InjectUtils {
 			if(offset<params.length){
 				String value = "";
 				String param = String.valueOf(params[offset]);
-				try {
-					param = URLEncoder.encode(param,"UTF-8");
-				} catch (UnsupportedEncodingException e) {
-					throw new RuntimeException(e);
+				if(encode){
+					try {
+						param = URLEncoder.encode(param,"UTF-8");
+					} catch (UnsupportedEncodingException e) {
+						throw new RuntimeException(e);
+					}
 				}
 				if(null == matcher.group(1)
 						||"".equals(matcher.group(1))){
-					value = param;
+					value = "\""+param+"\"";
 				}else{
-					value = matcher.group(1) + param;
+					value = matcher.group(1) + "\""+param+"\"";
 				}
 				value = value.replace("$", "\\$");
 				matcher.appendReplacement(sb,value);
@@ -51,7 +56,10 @@ public class InjectUtils {
 		matcher.appendTail(sb);
 		return sb.toString();
 	}
-	public static String inject(String pattern,Map<String,Object> params){
+	public static String inject(String pattern, Map<String,Object> params){
+		return inject(pattern, params, true);
+	}
+	public static String inject(String pattern,Map<String,Object> params, boolean encode){
 		Matcher matcher = regex.matcher(pattern);
 		StringBuffer sb = new StringBuffer();
 		//will be more faster?
@@ -64,16 +72,18 @@ public class InjectUtils {
 					if(injected.equals(entry.getKey())){
 						String value = "";
 						String param = String.valueOf(entry.getValue());
-						try {
-							param = URLEncoder.encode(param,"UTF-8");
-						} catch (UnsupportedEncodingException e) {
-							throw new RuntimeException(e);
+						if(encode){
+							try {
+								param = URLEncoder.encode(param,"UTF-8");
+							} catch (UnsupportedEncodingException e) {
+								throw new RuntimeException(e);
+							}
 						}
 						if(null == matcher.group(1)
 								||"".equals(matcher.group(1))){
-							value = param;
+							value = "\""+param+"\"";
 						}else{
-							value = matcher.group(1) + param;
+							value = matcher.group(1) + "\""+param+"\"";
 						}
 						matcher.appendReplacement(sb,value);
 						flag = 1;

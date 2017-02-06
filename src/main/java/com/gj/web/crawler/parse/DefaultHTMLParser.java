@@ -48,15 +48,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	 */
 	private static final long serialVersionUID = -8908288905050348183L;
 	
-	private static final String PARSER_NAME = "parse";
-	
-	private static final Integer COMMIT_PER_COUNT = 200;
+	private static final String DFAULT_DB_NAME = "temp";
 	
 	private static  HTreeMap<String,Object> pmap = null;
-	
-	private static final String DB_NAME_PRFIX = "map_db_";
-	
-	private static final String DFAULT_DB_NAME = "temp";
 	
 	private Object id = null;;
 	
@@ -141,6 +135,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		ResultModel model = new ResultModel();
 		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
+		model.putAndAdd("_payload", url.getPayload());//add payload message
 		Map<String,URL> download = new HashMap<String,URL>();//to store the URL from parsing which is needed to download
 		String subDir = "/";//the subDir of medias
 		for(Entry<String,Object> entry : patterns.entrySet()){

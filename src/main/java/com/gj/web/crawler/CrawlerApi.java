@@ -6,6 +6,12 @@ import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.URL;
 
 public interface CrawlerApi {
+	
+	public static final int MAX_CONNECT_THREAD = 10;
+	/**
+	 * the depth of crawling ,default no limit
+	 */
+	public static final int DEFAULT_CRAWL_DEPTH = -1;
 	/**
 	 * HTML
 	 * @param url

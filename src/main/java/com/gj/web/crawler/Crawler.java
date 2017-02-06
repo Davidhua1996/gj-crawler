@@ -38,7 +38,6 @@ public class Crawler implements CrawlerApi,Serializable{
 	 */
 	private static final long serialVersionUID = -9356067239422904L;
 	
-	private static final int MAX_CONNECT_THREAD = 10;
 	/**
 	 * unique identify
 	 */
@@ -54,6 +53,10 @@ public class Crawler implements CrawlerApi,Serializable{
 	 * so we set the number by default
 	 */
 	private Integer connNum = MAX_CONNECT_THREAD;
+	/**
+	 * the depth of crawling
+	 */
+	private Integer maxDepth = DEFAULT_CRAWL_DEPTH;
 	/**
 	 * regular expression for crawl-allowed URLs
 	 */

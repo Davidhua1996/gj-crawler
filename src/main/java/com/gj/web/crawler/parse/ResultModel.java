@@ -63,6 +63,13 @@ public class ResultModel implements Serializable{
 	public String getString(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
+			if(obj[0] instanceof byte[]){
+				byte[] t = (byte[])obj[0];
+				return new String(t);
+			}else if(obj[0] instanceof char[]){
+				char[] t = (char[])obj[0];
+				return new String(t);
+			}
 			return (String)obj[0];
 		}
 		return null;

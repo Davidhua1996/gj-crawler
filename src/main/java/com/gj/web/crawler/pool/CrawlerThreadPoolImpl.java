@@ -14,6 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
@@ -38,6 +41,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int MAX_FREE_TIME = 1000*16;
 	
+	private static final int DEFAULT_RETRY_COUNT = 5;
+	
+	private static final Logger logger = LogManager.getLogger(CrawlerThreadPool.class);
+	
 	private static CrawlerThreadPool pool;
 	/**
 	 * pool size
@@ -57,6 +64,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private boolean useMapDB = false;
 	
+	private int maxRetry = DEFAULT_RETRY_COUNT;
 	/**
 	 * store crawlers
 	 */
@@ -152,18 +160,29 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		}
 	}
 	public void execute(String cid, Object... params) {
+		execute(cid, null, params);
+	}
+	
+	public void execute(String cid, Map<String, Object> params) {
+		execute(cid, null, params);
+	}
+	
+	public void execute(String cid, byte[] payload, Object... params){
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && crawler.isUseParams()){
 			String portal = InjectUtils.inject(crawler.portal(), params);
-			URL url = new URL(cid, portal);
+			portal.replace("\"", "");
+			URL url = new URL(cid, portal, payload);
 			execute(url);
 		}
 	}
-	public void execute(String cid, Map<String, Object> params) {
+	
+	public void execute(String cid, byte[] payload, Map<String, Object> params) {
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && crawler.isUseParams()){
 			String portal = InjectUtils.inject(crawler.portal(), params);
-			URL url = new URL(cid, portal);
+			portal.replace("\"", "");
+			URL url = new URL(cid, portal, payload);
 			execute(url);
 		}
 	}
@@ -238,6 +257,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 								for(int i = 0;i<urls.size();i++){
 									URL tmp = urls.get(i);
 									tmp.setCid(url.getCid());//set cid tag
+									tmp.setPayload(url.getPayload());//add payload message
 									execute(tmp);
 								}
 							}else if(url.getType().matches("(photo)|(video)")){
@@ -246,19 +266,24 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 						}
 					}catch(Exception ex){
 						Throwable root = ex;
-						while( root.getCause() != null){
-							root = root.getCause();
-						}
-						if(root instanceof SocketTimeoutException){
-							System.out.println("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal());
-							executeWithKeyNot(url);
-						}else if(root instanceof ProtocolException){
-							System.out.println("protocal exception :"+root.getMessage());
-						}else if(root instanceof IOException){
-							System.out.println("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" \nmessage:"+root.getMessage());
-							executeWithKeyNot(url);
+						if(url.getRetry() >= maxRetry){
+							logger.info("retry limited!");
 						}else{
-							ex.printStackTrace();
+							url.setRetry(url.getRetry() + 1);//increase simplify
+							while( root.getCause() != null){
+								root = root.getCause();
+							}
+							if(root instanceof SocketTimeoutException){
+								logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal(),root);
+								executeWithKeyNot(url);
+							}else if(root instanceof ProtocolException){
+								logger.info("protocal exception :"+root.getMessage(),root);
+							}else if(root instanceof IOException){
+								logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" \nmessage:"+root.getMessage(),root);
+								executeWithKeyNot(url);
+							}else{
+								ex.printStackTrace();
+							}
 						}
 					}
 				}
@@ -304,6 +329,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public void setMonitors(List<Monitor> monitors) {
 		this.monitors = monitors;
+	}
+	public int getMaxRetry() {
+		return maxRetry;
+	}
+	public void setMaxRetry(int maxRetry) {
+		this.maxRetry = maxRetry;
 	}
 	
 }

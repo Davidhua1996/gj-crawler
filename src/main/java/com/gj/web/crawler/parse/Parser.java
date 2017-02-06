@@ -8,6 +8,12 @@ import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.pool.basic.URL;
 
 public interface Parser {
+	
+	public static final String PARSER_NAME = "parse";
+	
+	public static final Integer COMMIT_PER_COUNT = 200;
+	
+	public static final String DB_NAME_PRFIX = "map_db_";
 	/**
 	 * parse HTML
 	 * @param html

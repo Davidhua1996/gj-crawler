@@ -22,6 +22,7 @@ public class HtmlUnitUtils {
 				}
 				if(request.getUrl().getPath().endsWith(".js") || 
 						accept.indexOf("text/html") >= 0){
+					System.out.println(request.getUrl());
 					return super.getResponse(request);
 				}
 				return createWebResponse(request, "", "text/html");
