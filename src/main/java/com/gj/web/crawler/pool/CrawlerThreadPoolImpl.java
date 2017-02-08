@@ -20,6 +20,8 @@ import org.apache.logging.log4j.Logger;
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
+import com.gj.web.crawler.CrawlerStatus;
+import com.gj.web.crawler.lifecycle.BasicLifecycle.Status;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
@@ -41,11 +43,15 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int MAX_FREE_TIME = 1000*16;
 	
-	private static final int DEFAULT_RETRY_COUNT = 5;
+	private static final int DEFAULT_RETRY_COUNT = 6;
 	
 	private static final Logger logger = LogManager.getLogger(CrawlerThreadPool.class);
 	
+	private static final String DEFAULT_THREAD_PREFIX = "http-crawl-exec-";
+	
 	private static CrawlerThreadPool pool;
+	
+	private static volatile int threadinitTimes = 0;
 	/**
 	 * pool size
 	 */
@@ -68,7 +74,11 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	/**
 	 * store crawlers
 	 */
-	private Map<String,CrawlerApi> crawlers = new ConcurrentHashMap<String,CrawlerApi>();
+	private Map<String, CrawlerApi> crawlers = new ConcurrentHashMap<String, CrawlerApi>();
+	/**
+	 * store status
+	 */
+	private Map<String, CrawlerStatus> statuses = new ConcurrentHashMap<String, CrawlerStatus>();
 	/**
 	 * lock
 	 */
@@ -84,6 +94,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	 * monitors
 	 */
 	private List<Monitor> monitors = new ArrayList<Monitor>();
+	
 	protected CrawlerThreadPoolImpl(){
 		
 	}
@@ -99,17 +110,18 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public synchronized void open() {
 		if(!isOpen){
-			if(useMapDB){
+			isOpen = true;
+			if(useMapDB && !(queue instanceof MapDBQueue)){
 				queue = new MapDBQueue<URL>();
 			}
-			//open threads
-			isOpen = true;
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).open(this);
 			}
-			for(int i = 0;i < poolSize;i++ ){
+			//open threads
+			int initialSize = num.get();// that means threads in pool didn't close totally before
+			for(int i = initialSize ;i < poolSize;i++ ){
 				Worker worker = new Worker();
-				new Thread(worker).start();
+				new Thread(worker,DEFAULT_THREAD_PREFIX + nextThreadId()).start();
 				num.incrementAndGet();
 			}
 			//start to crawl
@@ -121,6 +133,16 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					URL url = new URL(cid, urlStr);
 					execute(url);
 				}
+				//set crawler status
+				CrawlerStatus status = statuses.get(entry.getKey());
+				if(null == status){
+					status = new CrawlerStatus(entry.getValue());
+					status.initalize();
+					statuses.put(entry.getKey(), status);
+				}
+				if(status.status() != Status.OPEN){
+					status.open();
+				}
 			}
 		}
 	}
@@ -131,10 +153,13 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public synchronized void shutdown() {
 		if(num.get() == 0){
 			isOpen = false;
+			threadinitTimes = 0;
 			queue.clear();//clear the cache,release the memory
-			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
-				CrawlerApi crawler = entry.getValue();
-				crawler.getParser().persist();//persist the collection in-memory in parser
+			for(Entry<String, CrawlerStatus> entry : statuses.entrySet()){
+				CrawlerStatus status = entry.getValue();
+				if(status.status() != Status.CLOSE){//if status != Status.CLOSE, call close method
+					status.shutdown();
+				}
 			}
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).close(this);
@@ -142,15 +167,19 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		}
 		System.gc();
 	}
+	public void close(){// close indirectly
+		isOpen = false;
+	}
 	public void execute(String cid) {
-		CrawlerApi crawler = crawlers.get(cid);
-		if(null != crawler && !crawler.isUseParams()){
-			URL url = new URL(cid,crawler.portal());
-			execute(url);
-		}
+		execute(cid, (byte[])null);
 	}
 	public void execute(URL url) {
 		if(!isOpen) open();//open
+		CrawlerStatus status = statuses.get(url.getCid());
+		if(null == status){
+			logger.info("couldn't find the right crawler to execute the url");
+		}
+		status.addWork(url);
 		poolLock.lock();
 		try{
 			queue.pushWithKey(url,url.getUrl());//duplicate removal
@@ -159,7 +188,14 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			poolLock.unlock();
 		}
 	}
-	public void execute(String cid, Object... params) {
+	public void execute(String cid, byte[] payload) {
+		CrawlerApi crawler = crawlers.get(cid);
+		if(null != crawler && !crawler.isUseParams()){
+			URL url = new URL(cid,crawler.portal(), payload);
+			execute(url);
+		}
+	}
+	public void execute(String cid, Object[] params) {
 		execute(cid, null, params);
 	}
 	
@@ -167,11 +203,11 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		execute(cid, null, params);
 	}
 	
-	public void execute(String cid, byte[] payload, Object... params){
+	public void execute(String cid, byte[] payload, Object[] params){
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && crawler.isUseParams()){
 			String portal = InjectUtils.inject(crawler.portal(), params);
-			portal.replace("\"", "");
+			portal = portal.replace("\"", "");
 			URL url = new URL(cid, portal, payload);
 			execute(url);
 		}
@@ -181,7 +217,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && crawler.isUseParams()){
 			String portal = InjectUtils.inject(crawler.portal(), params);
-			portal.replace("\"", "");
+			portal = portal.replace("\"", "");
 			URL url = new URL(cid, portal, payload);
 			execute(url);
 		}
@@ -207,93 +243,104 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		if(queueNum < 0 || actNum <0){
 			this.isOpen = false;
 			//TODO LOGGER
-			System.out.println("错误发生: actNum:"+actNum+" queueNum:"+queueNum);
+			logger.trace("error occured in pool: actNum:"+actNum+" queueNum:"+queueNum);
 		}
 		if(actNum < poolSize && actNum >0 & queueNum > 0 && actNum/queueNum < 1){
-			System.out.println("创建新线程:"+(queueNum - actNum));
+			logger.trace("create new thread:"+(queueNum - actNum));
 			for(int i = 0;i<queueNum - actNum;i++){
 				Worker worker = new Worker();
-				new Thread(worker).start();
+				new Thread(worker,DEFAULT_THREAD_PREFIX+nextThreadId()).start();
 				num.incrementAndGet();
 			}
 		}
 	}
+	private synchronized int nextThreadId(){
+		return ++threadinitTimes;
+	}
 	private class Worker implements Runnable {
 		//start to run
 		public void run() {
-			while(true){
-				URL url = null;
-				poolLock.lock();
-				boolean bool = true;
-				try{
-					while(queue.size() <= 0){
-						try {
-							bool =  notEmpty.await(maxFree,TimeUnit.MILLISECONDS);
-							if(!bool){
-								break;
-							}
-						} catch (InterruptedException e) {
-							e.printStackTrace();
-						}
-					}
-					if(bool){
-						url = queue.poll();
-						fixCapacity();
-					}
-				}finally{
-					poolLock.unlock();
-				}
-				if(!bool || url == null){//cannot get the URL from queue,destroy the thread automatically
-					break;
-				}
-				//find the crawler from 'crawlers' by cid
-				CrawlerApi crawler = crawlers.get(url.getCid());
-				if(null != crawler){
-					//the specific crawl process is in class Crawler
+			try{
+				while(true){
+					URL url = null;
+					poolLock.lock();
+					boolean bool = true;
 					try{
-						if(null != url.getType()){
-							if(url.getType().matches("html")){
-								List<URL> urls = crawler.crawlHTML(url);
-								for(int i = 0;i<urls.size();i++){
-									URL tmp = urls.get(i);
-									tmp.setCid(url.getCid());//set cid tag
-									tmp.setPayload(url.getPayload());//add payload message
-									execute(tmp);
+						while(queue.size() <= 0){
+							try {
+								bool =  notEmpty.await(maxFree,TimeUnit.MILLISECONDS);
+								if(!bool){
+									break;
 								}
-							}else if(url.getType().matches("(photo)|(video)")){
-								crawler.crawlMedia(url, url.getLocal());
+							} catch (InterruptedException e) {
+								e.printStackTrace();
 							}
 						}
-					}catch(Exception ex){
-						Throwable root = ex;
-						if(url.getRetry() >= maxRetry){
-							logger.info("retry limited!");
-						}else{
-							url.setRetry(url.getRetry() + 1);//increase simplify
-							while( root.getCause() != null){
-								root = root.getCause();
+						if(bool){
+							url = queue.poll();
+							fixCapacity();
+						}
+					}finally{
+						poolLock.unlock();
+					}
+					if(!bool || url == null){//cannot get the URL from queue,destroy the thread automatically
+						break;
+					}
+					//find the crawler's status from 'statuses' by cid
+					CrawlerStatus status = statuses.get(url.getCid());
+					if(null != status){
+						if(status.status() != Status.RUNNING){
+							status.status(Status.RUNNING);
+						}
+						CrawlerApi crawler = status.getCrawler();
+						try{
+							//the specific crawl process is in class Crawler
+							if(null != url.getType()){
+								if(url.getType().matches("html")){
+									List<URL> urls = crawler.crawlHTML(url);
+									for(int i = 0;i<urls.size();i++){
+										URL tmp = urls.get(i);
+										tmp.setCid(url.getCid());//set cid tag
+										tmp.setPayload(url.getPayload());//add payload message
+										execute(tmp);
+									}
+								}else if(url.getType().matches("(photo)|(video)")){
+									crawler.crawlMedia(url, url.getLocal());
+								}
+								status.finish(url);//finish the work
 							}
-							if(root instanceof SocketTimeoutException){
-								logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal(),root);
-								executeWithKeyNot(url);
-							}else if(root instanceof ProtocolException){
-								logger.info("protocal exception :"+root.getMessage(),root);
-							}else if(root instanceof IOException){
-								logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" \nmessage:"+root.getMessage(),root);
-								executeWithKeyNot(url);
+						}catch(Exception ex){
+							Throwable root = ex;
+							if(url.getRetry() >= maxRetry){
+								logger.info("retry limited!",root);
 							}else{
-								ex.printStackTrace();
+								url.setRetry(url.getRetry() + 1);//increase simplify
+								while( root.getCause() != null){
+									root = root.getCause();
+								}
+								if(root instanceof SocketTimeoutException){
+									logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal());
+									executeWithKeyNot(url);
+								}else if(root instanceof ProtocolException){
+									logger.info("protocal exception :"+root.getMessage(),root);
+								}else if(root instanceof IOException){
+									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
+									executeWithKeyNot(url);
+								}else{
+									ex.printStackTrace();
+								}
 							}
 						}
 					}
+					if(!isOpen){//check available at last
+						break;
+					}
 				}
-				if(!isOpen){//check available at last
-					break;
+			}finally{
+				num.decrementAndGet();//exists!
+				if(num.get() == 0){
+					shutdown();
 				}
-			}
-			num.decrementAndGet();//exists!
-			if(num.get() == 0){
-				shutdown();
 			}
 		}
 	}

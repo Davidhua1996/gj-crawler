@@ -15,7 +15,7 @@ public class WebClientPooledFactory extends BasePoolableObjectFactory<WebClient>
 	@Override
 	public WebClient makeObject() throws Exception {
 		WebClient client = new WebClient(BrowserVersion.CHROME);
-		client.setJavaScriptEngine(new JScriptEngine(client));
+		client.setJavaScriptEngine(new JscriptEngine(client));
 		client.getOptions().setCssEnabled(false);
 		client.getOptions().setJavaScriptEnabled(true);
 		client.getOptions().setActiveXNative(false);

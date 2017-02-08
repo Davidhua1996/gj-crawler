@@ -31,7 +31,7 @@ public class DefaultCallback implements Callback,Serializable{
 	 * you'd better to do in new thread 
 	 * CN:建议如果做一些耗时的工作(在persist方法中),最好在线程中完成(为了不阻塞队列)
 	 */
-	public void persist(List<Object> store) {
+	public synchronized void persist(List<Object> store) {
 		System.out.println("需要持久化的数量(待持久化):"+store.size());
 	}
 

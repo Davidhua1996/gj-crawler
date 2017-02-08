@@ -12,7 +12,7 @@ public class DefaultHttpExecutor extends HttpExecutor {
 	/**
 	 * default connectTimeout 
 	 */
-	private final int CONNECT_TIMEOUT = 5000;
+	private final int CONNECT_TIMEOUT = 10000;
 	/**
 	 * default readTieout
 	 */

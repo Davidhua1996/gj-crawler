@@ -42,8 +42,11 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public void execute(URL url) {
 		pool.execute(url);
 	}
-
-	public void execute(String cid, Object... params) {
+	
+	public void execute(String cid, byte[] payload) {
+		pool.execute(cid, payload);
+	}
+	public void execute(String cid, Object[] params) {
 		pool.execute(cid, params);
 	}
 
@@ -51,7 +54,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		pool.execute(cid, params);
 	}
 	
-	public void execute(String cid, byte[] payload, Object... params) {
+	public void execute(String cid, byte[] payload, Object[] params) {
 		pool.execute(cid, payload, params);
 	}
 

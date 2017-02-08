@@ -35,6 +35,10 @@ public interface Parser {
 	 * @param store
 	 */
 	public void persist();
+	/**
+	 * like persist method,but commit link-message also
+	 */
+	public void pcommit();
 	
 	public Callback getCallback();
 	

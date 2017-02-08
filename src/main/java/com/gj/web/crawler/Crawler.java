@@ -1,6 +1,7 @@
 package com.gj.web.crawler;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -23,6 +24,8 @@ import com.gj.web.crawler.htmlunit.WebClientPooledFactory;
 import com.gj.web.crawler.http.HttpExecutor;
 import com.gj.web.crawler.http.Response;
 import com.gj.web.crawler.http.utils.DataUtils;
+import com.gj.web.crawler.lifecycle.BasicLifecycle;
+import com.gj.web.crawler.lifecycle.Lifecycle;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.URL;
@@ -32,7 +35,7 @@ import com.gj.web.crawler.pool.basic.URL;
  * @author David
  *
  */
-public class Crawler implements CrawlerApi,Serializable{
+public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	/**
 	 * serialVersionUID
 	 */
@@ -169,6 +172,8 @@ public class Crawler implements CrawlerApi,Serializable{
 				executor = HttpExecutor.newInstance(url.getUrl());
 				executor.wrapperConn().cookies(cookies).execute();
 				Response response = executor.response();
+				File directory = new File(storePath.substring(0, storePath.lastIndexOf("/")));
+				directory.mkdirs();
 				out = new FileOutputStream(storePath);
 				in = new 
 						BufferedInputStream(response.getInputStream(),DataUtils.BUFFER_SIZE);//download from input stream
@@ -185,7 +190,7 @@ public class Crawler implements CrawlerApi,Serializable{
 				}
 			}finally{
 				try {
-					executor.disconnect();
+					if(null != executor) executor.disconnect();
 					if(null != in)in.close();
 					if(null != out)out.close();
 				} catch (IOException e) {
@@ -201,6 +206,7 @@ public class Crawler implements CrawlerApi,Serializable{
 	 */
 	private Response connectAndResponse(URL url){
 		HttpExecutor executor = HttpExecutor.newInstance(url.getUrl());
+		System.out.println("URL 是:"+url.getUrl());
 		executor.wrapperConn().cookies(cookies).execute();// do like a browser
 		Response response = executor.response();
 		response.body();
@@ -278,7 +284,24 @@ public class Crawler implements CrawlerApi,Serializable{
 			crawlLock.unlock();
 		}
 	}
-	
+	@Override
+	protected void openInternal() {
+		if(null != parser && parser instanceof Lifecycle){
+			((Lifecycle)parser).open();
+		}
+	}
+	@Override
+	protected void shutdownInternal() {
+		if(null != parser && parser instanceof Lifecycle){
+			((Lifecycle)parser).shutdown();
+		}
+	}
+	@Override
+	protected void initalInternal() {
+		if(null != parser && parser instanceof Lifecycle){
+			((Lifecycle)parser).initalize();
+		}
+	}
 	public String portal() {
 		return portal;
 	}
@@ -345,5 +368,7 @@ public class Crawler implements CrawlerApi,Serializable{
 	public void setSimulate(boolean simulate) {
 		this.simulate = simulate;
 	}
-	
+	public void open() {
+		
+	}
 }

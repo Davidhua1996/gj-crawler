@@ -75,7 +75,7 @@ public class JsonUtils {
 			while((jsonStr = reader.readLine())!= null){
 				builder.append(jsonStr);
 			}
-			reader.close();
+//			reader.close(); 不关闭流
 		}catch(Exception e){
 			logger.info(e);
 			throw new RuntimeException(e);

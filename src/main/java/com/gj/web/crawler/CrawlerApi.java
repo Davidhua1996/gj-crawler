@@ -55,4 +55,8 @@ public interface CrawlerApi {
 	 * @return
 	 */
 	public Parser getParser();
+	/**
+	 * open the crawler
+	 */
+	public void open();
 }

@@ -7,9 +7,9 @@ import com.gargoylesoftware.htmlunit.WebWindow;
 import com.gargoylesoftware.htmlunit.javascript.JavaScriptEngine;
 import com.gargoylesoftware.htmlunit.javascript.host.Window;
 
-public class JScriptEngine extends JavaScriptEngine{
+public class JscriptEngine extends JavaScriptEngine{
 
-	public JScriptEngine(WebClient webClient) {
+	public JscriptEngine(WebClient webClient) {
 		super(webClient);
 		// TODO Auto-generated constructor stub
 	}

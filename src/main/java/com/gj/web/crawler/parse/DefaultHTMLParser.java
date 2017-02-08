@@ -10,30 +10,30 @@ import java.security.PrivilegedAction;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
+import java.util.TimerTask;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.mapdb.DB;
-import org.mapdb.DBMaker;
 import org.mapdb.HTreeMap;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gj.web.crawler.http.utils.DataUtils;
+import com.gj.web.crawler.lifecycle.BasicLifecycle;
 import com.gj.web.crawler.parse.json.JsonUtils;
 import com.gj.web.crawler.parse.json.Pattern;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
@@ -41,14 +41,17 @@ import com.gj.web.crawler.pool.basic.DBType;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.MapDBContext;
 
-public class DefaultHTMLParser implements Parser,Serializable{
+public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializable{
 	
+	public static final String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
+	
+	private static final int DEFAULT_TIMER_INTERVAL = 3000;
 	/**
 	 * serialVersionUID
 	 */
 	private static final long serialVersionUID = -8908288905050348183L;
 	
-	private static final String DFAULT_DB_NAME = "temp";
+	private static final Logger logger = LogManager.getLogger(DefaultHTMLParser.class);
 	
 	private static  HTreeMap<String,Object> pmap = null;
 	
@@ -77,6 +80,10 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	protected transient ExecutorService pool = null;
 	
 	protected Map<String,Object> patterns = new ConcurrentHashMap<String,Object>();
+	@JsonIgnore
+	protected Timer timer = null;
+	
+	protected long interval = DEFAULT_TIMER_INTERVAL ;
 	
 	public DefaultHTMLParser(){
 		
@@ -87,7 +94,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	}
 	
 	private synchronized void init(Object id){
-		if(null == db || null == pmap){
+		if(null == db || null == pmap || db.isClosed()){
 			if(null == this.id){
 				this.id = id;
 			}
@@ -103,13 +110,23 @@ public class DefaultHTMLParser implements Parser,Serializable{
 					TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), 
 					new ThreadPoolExecutor.CallerRunsPolicy());
 		}
+		if(null == timer){
+			timer = new Timer();
+		}
+		timer.schedule(new TimerTask() {
+			@Override
+			public void run() {
+				pcommit();
+				count = pmap.size() + COMMIT_PER_COUNT;
+			}
+		}, interval, interval);
 	}
 	
 	public void parse(String html,URL url) {
 		parse(Jsoup.parse(html),url);
 	}
 	public void parse(final Document doc,final URL url) {
-		if(null == db || null == pmap){
+		if(null == db || null == pmap || db.isClosed()){
 			init(this.id);
 		}
 		if(null != doc && null == pmap.putIfAbsent(url.getUrl(),1)){
@@ -164,10 +181,11 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			}
 		}
 		if(! subDir.equals("/") && subDir.length() > 1){
-			subDir += "/";
-			File parent = new File(path + subDir);
+			File parent = new File(path + subDir + "/");
 			deleteRec(parent);
 			parent.mkdirs();
+		}else{
+			subDir = "";
 		}
 		int index = 0;
 		List<Entry<String,URL>> entrys = 
@@ -187,9 +205,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 					URL imgurl = new URL(url.getCid(),el.attr("src"));
 					imgurl.setType("photo");
 					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), entrys.size());
-					loc = path + subDir + name;
+					loc = path + subDir + "/photo/" + name;
 					imgurl.setLocal(loc);
-					el.attr("src", childDir+ subDir + name);
+					el.attr("src", DFAULT_DOMAIN_PLACEHOLDER + childDir + subDir + "/photo/" + name);
 					Entry<String,URL> newEntry = 
 								new AbstractMap.SimpleEntry<String, URL>(tmpKey+"_img_"+j, imgurl);
 					entrys.add(newEntry);
@@ -201,19 +219,19 @@ public class DefaultHTMLParser implements Parser,Serializable{
 				continue;
 			}else if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
 				name = DataUtils.randomHTTPFileName(null, index);
-				loc = path + subDir + name;
+				loc = path + subDir + "/content/" + name;
 				localStore(value,loc);
 			}else{//else put into the pool to crawler
 				if(null == (loc = src.getLocal())){
 					name = DataUtils.randomHTTPFileName(value, index);
-					loc = path + subDir + name;
+					loc = path + subDir + "/photo/" + name;
 					src.setLocal(loc);
 				}else{
 					name = loc.substring(loc.lastIndexOf("/")+1);
 				}
 				CrawlerThreadPoolImpl.getInstance().execute(src);
 			}
-			model.putAndAdd(key,childDir + subDir + name);
+			model.putAndAdd(key,loc.substring(rootDir.length()));
 			index ++;
 		}
 		doc.empty();
@@ -223,7 +241,7 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		if(null != resolvedObj){//store in-memory in temporary
 			store.add(resolvedObj);
 		}
-		pcommit();
+		pcommit0();
 		System.gc();
 	}
 	private String parseElement(Element el,String type,String attr){
@@ -245,9 +263,9 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		try{
 			byte[] b = content.getBytes("UTF-8");
 			buf = ByteBuffer.wrap(b);
-			File file = new File(loc);
-			file.createNewFile();
-			out = new FileOutputStream(file);
+			File directory = new File(loc.substring(0,loc.lastIndexOf("/")));
+			directory.mkdirs();
+			out = new FileOutputStream(loc);
 			out.getChannel().write(buf);
 			buf.clear();
 		}catch(IOException e){
@@ -274,26 +292,32 @@ public class DefaultHTMLParser implements Parser,Serializable{
 		}
 		return path;
 	}
-	private void pcommit(){
-		if(pmap.size() >= count){
-			pcommit0();
+	private void pcommit0(){//avoid store too many objects in-memory but 'Timer' can't persist them in time
+		if(null != pmap && pmap.size() >= count){
+			synchronized(pmap){
+				if(pmap.size() >= count){
+					try{
+						pcommit();
+						count += COMMIT_PER_COUNT;
+					}catch(Exception e){
+						logger.info(e);
+					}
+				}
+			}
 		}
 	}
-	private synchronized void pcommit0(){
-		if(pmap.size() >= count){
-			try{
-				db.commit();
-				if(store.size() > 0){
-					callback.persist(store);
-				}
-				store.clear();
-				count += COMMIT_PER_COUNT;
-			}catch(Exception e){
-				db.rollback();
-				//TODO Logger
-			}finally{
-				System.gc();
+	public synchronized void pcommit(){
+		try{
+			db.commit();
+			if(store.size() > 0){
+				callback.persist(store);
 			}
+			store.clear();
+		}catch(Exception e){
+			db.rollback();
+			throw new RuntimeException(e);
+		}finally{
+			System.gc();
 		}
 	}
 	private void deleteRec(final File parent){
@@ -311,6 +335,29 @@ public class DefaultHTMLParser implements Parser,Serializable{
 			});
 		}
 	}
+	@Override
+	protected void openInternal() {
+		this.openPool();
+	}
+
+	@Override
+	protected void shutdownInternal() {
+		this.pcommit();
+		db.close();
+		if(null != pool){
+			pool.shutdown();
+			pool = null;
+		}
+		if(null != timer){
+			timer.cancel();//cancel
+		}
+	}
+
+	@Override
+	protected void initalInternal() {
+		this.init(this.id);
+	}
+	
 	public boolean isUsePool() {
 		return usePool;
 	}
@@ -375,5 +422,4 @@ public class DefaultHTMLParser implements Parser,Serializable{
 	public void setId(Object id) {
 		this.id = id;
 	}
-	
 }
