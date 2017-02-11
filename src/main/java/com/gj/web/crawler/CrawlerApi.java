@@ -1,11 +1,16 @@
 package com.gj.web.crawler;
 
 import java.util.List;
+import java.util.Queue;
 
+import com.gj.web.crawler.parse.Callback;
 import com.gj.web.crawler.parse.Parser;
+import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
 
 public interface CrawlerApi {
+	
+	public static final int DEFAULT_TIMER_INTERVAL = 5000;
 	
 	public static final int MAX_CONNECT_THREAD = 10;
 	/**
@@ -24,6 +29,11 @@ public interface CrawlerApi {
 	 * @param storePath
 	 */
 	public void crawlMedia(URL url,String storePath);
+	/**
+	 * callback method
+	 * @param medias
+	 */
+	public void mediaDownloaded(Queue<URL> medias);
 	/**
 	 * return the entrance-URL if it is a crawler for searching,
 	 * else return null in default
@@ -59,4 +69,17 @@ public interface CrawlerApi {
 	 * open the crawler
 	 */
 	public void open();
+	
+	public Callback getCallback();
+	
+	public void setCallback(Callback callback);
+	
+	public void setCrawlPool(CrawlerThreadPool pool);
+	/**
+	 * crawl deepth
+	 * @return
+	 */
+	public Integer getMaxDepth();
+	
+	public void setMaxDepth(Integer maxDepth);
 }

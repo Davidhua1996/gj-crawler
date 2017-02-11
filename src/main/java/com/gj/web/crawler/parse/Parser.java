@@ -5,9 +5,14 @@ import java.util.List;
 import org.jsoup.nodes.Document;
 
 import com.gj.web.crawler.Crawler;
+import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
 
 public interface Parser {
+	
+	public static final String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
+	
+	public static final int DEFAULT_TIMER_INTERVAL = 3000;
 	
 	public static final String PARSER_NAME = "parse";
 	
@@ -57,4 +62,6 @@ public interface Parser {
 	public String getChildDir();
 	
 	public boolean isParsed(URL url);
+	
+	public void setCrawlPool(CrawlerThreadPool pool);
 }

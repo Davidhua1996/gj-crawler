@@ -36,6 +36,7 @@ import com.gj.web.crawler.http.utils.DataUtils;
 import com.gj.web.crawler.lifecycle.BasicLifecycle;
 import com.gj.web.crawler.parse.json.JsonUtils;
 import com.gj.web.crawler.parse.json.Pattern;
+import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.DBType;
 import com.gj.web.crawler.pool.basic.URL;
@@ -43,9 +44,6 @@ import com.gj.web.crawler.utils.MapDBContext;
 
 public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializable{
 	
-	public static final String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
-	
-	private static final int DEFAULT_TIMER_INTERVAL = 3000;
 	/**
 	 * serialVersionUID
 	 */
@@ -53,7 +51,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	
 	private static final Logger logger = LogManager.getLogger(DefaultHTMLParser.class);
 	
-	private static  HTreeMap<String,Object> pmap = null;
+	private volatile HTreeMap<String,Object> pmap = null;
 	
 	private Object id = null;;
 	
@@ -63,9 +61,11 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	@JsonIgnore
 	private transient Callback callback = new DefaultCallback();
 	
-	private List<Object> store = new CopyOnWriteArrayList<Object>();
-	
+	private volatile List<Object> store = new CopyOnWriteArrayList<Object>();
+	                                                                                                         
 	private final String TEMP = "/usr/tmp"; 
+	@JsonIgnore
+	private CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
 	/**
 	 * whether use thread pool
 	 */
@@ -101,6 +101,9 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			db = MapDBContext.getDB(DB_NAME_PRFIX+this.id,DBType.FILE);
 			pmap = db.getHashMap(PARSER_NAME);
 			count = pmap.size() + COMMIT_PER_COUNT;	
+		} 
+		if(null == timer){
+			timer = new Timer();
 		}
 	}
 	
@@ -110,14 +113,13 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 					TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(10), 
 					new ThreadPoolExecutor.CallerRunsPolicy());
 		}
-		if(null == timer){
-			timer = new Timer();
-		}
 		timer.schedule(new TimerTask() {
 			@Override
 			public void run() {
-				pcommit();
-				count = pmap.size() + COMMIT_PER_COUNT;
+				synchronized(pmap){
+					pcommit();
+					count = pmap.size()+ COMMIT_PER_COUNT;
+				}
 			}
 		}, interval, interval);
 	}
@@ -173,6 +175,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 					if(pattern.isDownload() && type.matches("(photo)|(video)|(html)|(text)")){
 						URL src = new URL(url.getCid(),value);
 						src.setType(type);
+						formatURL(src);
 						download.put(key+"_"+i, src);
 					}else{
 						model.putAndAdd(key, value);
@@ -187,14 +190,17 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		}else{
 			subDir = "";
 		}
-		int index = 0;
+		int index = 0, medias = 0;
 		List<Entry<String,URL>> entrys = 
 				new ArrayList<Entry<String,URL>>(download.entrySet());
+		if(null == crawlPool){
+			throw new RuntimeException("crawl pool can't be null");
+		}
 		for(int i = 0;i < entrys.size(); i++){
 			Entry<String,URL> entry = entrys.get(i);
 			URL src = entry.getValue();
 			String value = src.getUrl();
-			String loc = null,name = null;
+			Object loc = null,name = null;
 			String tmpKey = entry.getKey();
 			String key = tmpKey.substring(0,tmpKey.lastIndexOf("_"));
 			if(src.getType().matches("html")){//for type 'html',parse again
@@ -203,14 +209,22 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 				for(int j = 0;j<imgs.size();j++){
 					Element el = imgs.get(j);
 					URL imgurl = new URL(url.getCid(),el.attr("src"));
+					formatURL(imgurl);
 					imgurl.setType("photo");
-					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), entrys.size());
+					//generate image's name with original URL and index, index is the location of downloading
+					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), index); 
+					index ++;
 					loc = path + subDir + "/photo/" + name;
-					imgurl.setLocal(loc);
-					el.attr("src", DFAULT_DOMAIN_PLACEHOLDER + childDir + subDir + "/photo/" + name);
-					Entry<String,URL> newEntry = 
-								new AbstractMap.SimpleEntry<String, URL>(tmpKey+"_img_"+j, imgurl);
-					entrys.add(newEntry);
+					imgurl.setLocal(String.valueOf(loc));
+					imgurl.setAttached(url);//set attached URL
+					Object tmp = null;
+					if(null != (tmp =  crawlPool.executeIfAbsent(imgurl))){//find local mapping of URL, means that the URL has been crawl 
+						loc = tmp;
+					}else{
+						medias ++;
+					}
+					model.putAndAdd("_img", String.valueOf(loc).substring(rootDir.length()));
+					el.attr("src", DFAULT_DOMAIN_PLACEHOLDER +String.valueOf(loc).substring(rootDir.length()));
 				}
 				src.setUrl(htmlNode.html());
 				src.setType("text");//change to 'text'
@@ -220,29 +234,48 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			}else if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
 				name = DataUtils.randomHTTPFileName(null, index);
 				loc = path + subDir + "/content/" + name;
-				localStore(value,loc);
+				localStore(value,String.valueOf(loc));
 			}else{//else put into the pool to crawler
 				if(null == (loc = src.getLocal())){
 					name = DataUtils.randomHTTPFileName(value, index);
 					loc = path + subDir + "/photo/" + name;
-					src.setLocal(loc);
-				}else{
-					name = loc.substring(loc.lastIndexOf("/")+1);
+					src.setLocal(String.valueOf(loc));
+					if(null == crawlPool.executeIfAbsent(src)){
+						medias ++;
+					}
 				}
-				CrawlerThreadPoolImpl.getInstance().execute(src);
+				crawlPool.execute(src);
 			}
-			model.putAndAdd(key,loc.substring(rootDir.length()));
+			model.putAndAdd(key,String.valueOf(loc).substring(rootDir.length()));
 			index ++;
 		}
 		doc.empty();
+		model.putAndAdd("_downloading", medias);
 		//invoke resolve method in callback
 		Object resolvedObj = resolve(model);
 		model.inner.clear();
 		if(null != resolvedObj){//store in-memory in temporary
-			store.add(resolvedObj);
+			synchronized(store){
+				store.add(resolvedObj);
+			}
 		}
 		pcommit0();
 		System.gc();
+	}
+	private void formatURL(URL url){
+		String urlStr = url.getUrl();
+		urlStr = urlStr.replace("\n","");
+		if(urlStr.startsWith("//")){
+			urlStr = "http:"+urlStr;
+		}else if (urlStr.length() <= 4 ||
+				!urlStr.substring(0,4).equalsIgnoreCase("http")){
+			URL attached = url.getAttached();
+			if(null != attached && null != attached.getUrl()){
+				String before = attached.getUrl();
+				urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
+			}
+		}
+		url.setUrl(urlStr);
 	}
 	private String parseElement(Element el,String type,String attr){
 		String value = null;
@@ -306,13 +339,15 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			}
 		}
 	}
-	public synchronized void pcommit(){
+	public void pcommit(){
 		try{
-			db.commit();
+			if(!db.isClosed()) db.commit();
 			if(store.size() > 0){
-				callback.persist(store);
+				synchronized(store){
+					callback.persist(store);
+					store.clear();
+				}
 			}
-			store.clear();
 		}catch(Exception e){
 			db.rollback();
 			throw new RuntimeException(e);
@@ -342,14 +377,15 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 
 	@Override
 	protected void shutdownInternal() {
+		if(null != timer){
+			timer.cancel();//cancel
+			timer = null;
+		}
 		this.pcommit();
 		db.close();
 		if(null != pool){
 			pool.shutdown();
 			pool = null;
-		}
-		if(null != timer){
-			timer.cancel();//cancel
 		}
 	}
 
@@ -421,5 +457,9 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	}
 	public void setId(Object id) {
 		this.id = id;
+	}
+
+	public void setCrawlPool(CrawlerThreadPool pool) {
+		this.crawlPool = pool;
 	}
 }

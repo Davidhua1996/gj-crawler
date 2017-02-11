@@ -9,7 +9,7 @@ import java.util.Map;
  *
  * @param <T>
  */
-public class IMQueue<T> implements Queue<T>{
+public class IMQueue<T extends URL> implements Queue<T>{
 	private volatile long size = 0;
 	private Node<T> head = new Node<T>();
 	private Node<T> tail = new Node<T>();
@@ -60,7 +60,7 @@ public class IMQueue<T> implements Queue<T>{
 	public void pushWithKey(T t, String key) {
 		if(!record.containsKey(key)){
 //			System.out.println(key);
-			record.put(key, null);
+			record.put(key, ((URL)t).getLocal());
 			push(t);
 		}
 	}
@@ -76,20 +76,10 @@ public class IMQueue<T> implements Queue<T>{
 		this.record.clear();
 	}
 	public static void main(String[] args) {
-		Queue<Integer> queue = new IMQueue<Integer>();
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		queue.push(2);
-		System.out.println(queue.size());
+		
+	}
+
+	public Object local(String key) {
+		return record.get(key);
 	}
 }

@@ -77,12 +77,12 @@ public class CrawlerDemo{
 		crawler.setLazy(true);//懒加载
 //		crawler.setSimulate(true);//设置为模拟浏览器形式
 		//#{parameter}为需要注入的属性
-//		crawler.setPortal("http://search.bilibili.com/all?keyword=#{keyword}&page=#{pageNum}&order=totalrank&tids_1=4");
-		crawler.setPortal("http://space.bilibili.com/423895/?_escaped_fragment_=/index");
+		crawler.setPortal("http://search.bilibili.com/all?keyword=#{keyword}&page=#{pageNum}&order=totalrank&tids_1=4");
+//		crawler.setPortal("http://space.bilibili.com/423895/?_escaped_fragment_=/index");
 		crawler.getAllowURL().add("//www.bilibili.com/video/av\\w+");
 		crawler.getParseURL().add("http://www.bilibili.com/video/av\\w+");
-//		crawler.setRestrict("ul[class=ajax-render]");
-		crawler.setRestrict("div[class=content clearfix]");
+		crawler.setRestrict("ul[class=ajax-render]");
+//		crawler.setRestrict("div[class=content clearfix]");
 		DefaultHTMLParser parser = new DefaultHTMLParser();
 		parser.setRootDir("/usr");//根目录
 		parser.setChildDir("/bilibili");//子目录
@@ -98,11 +98,11 @@ public class CrawlerDemo{
 		pool.setCrawlers(crawlers);
 		pool.open();
 		for(int i = 1;i<10;i++){
-//			pool.execute("bilibili",new Object[]{"纯黑",i});
-			pool.execute("bilibili",new Object[]{});
+			pool.execute("bilibili",new Object[]{"纯黑",i});
+//			pool.execute("bilibili",new Object[]{});
 		}
 	}
 	public static void main(String[] args) {
-		crawler1();
+		crawler2();
 	}
 }

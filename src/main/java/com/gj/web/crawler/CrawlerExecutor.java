@@ -8,6 +8,7 @@ import org.springframework.beans.factory.InitializingBean;
 
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
+import com.gj.web.crawler.pool.Monitor;
 import com.gj.web.crawler.pool.basic.URL;
 
 /**
@@ -22,7 +23,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	 * Data Access Object for Crawler
 	 */
 	protected CrawlerDao dao = null;
-	private CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+	protected CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 
 	public void open() {
 		pool.open();
@@ -117,8 +118,28 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 					map.put(String.valueOf(crawler.getId()), crawler);
 				}
 			}
-			pool.open();
+			open();
 		}
+	}
+
+	public List<Monitor> getMonitors() {
+		return pool.getMonitors();
+	}
+
+	public void setMonitors(List<Monitor> monitors) {
+		this.pool.setMonitors(monitors);
+	}
+
+	public Object executeIfAbsent(URL url) {
+		return this.pool.executeIfAbsent(url);
+	}
+
+	public int getMaxRetry() {
+		return this.pool.getMaxRetry();
+	}
+
+	public void setMaxRetry(int maxRetry) {
+		this.pool.setMaxRetry(maxRetry);
 	}
 
 }

@@ -8,6 +8,10 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -16,6 +20,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebConnection;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
@@ -26,8 +31,11 @@ import com.gj.web.crawler.http.Response;
 import com.gj.web.crawler.http.utils.DataUtils;
 import com.gj.web.crawler.lifecycle.BasicLifecycle;
 import com.gj.web.crawler.lifecycle.Lifecycle;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
+import com.gj.web.crawler.parse.Callback;
+import com.gj.web.crawler.parse.DefaultCallback;
 import com.gj.web.crawler.parse.Parser;
+import com.gj.web.crawler.pool.CrawlerThreadPool;
+import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.URL;
 
 /**
@@ -44,13 +52,22 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	/**
 	 * unique identify
 	 */
-	private Object id;
+	protected Object id;
 	
-	private boolean useParams = false;
+	protected boolean useParams = false;
 	/**
 	 * simulate browser
 	 */
-	private boolean simulate = false;
+	protected boolean simulate = false;
+	/**
+	 * timer task for crawler
+	 */
+	@JsonIgnore
+	private Timer timer = null;
+	/**
+	 * completed media URLs
+	 */
+	private volatile Queue<URL> medias = new LinkedBlockingDeque<URL>();
 	/**
 	 * for each web site,it may limit the number of connection at the moment,
 	 * so we set the number by default
@@ -59,7 +76,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	/**
 	 * the depth of crawling
 	 */
-	private Integer maxDepth = DEFAULT_CRAWL_DEPTH;
+	protected Integer maxDepth = DEFAULT_CRAWL_DEPTH;
 	/**
 	 * regular expression for crawl-allowed URLs
 	 */
@@ -71,19 +88,26 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	/**
 	 * some web page need special cookie
 	 */
-	private List<String> cookies = new ArrayList<String>();
+	protected List<String> cookies = new ArrayList<String>();
+	/**
+	 * store crawl pool address
+	 */
+	@JsonIgnore
+	protected CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
 	/**
 	 * restrict the elements
 	 */
-	private String restrict = null;
+	protected String restrict = null;
 	
 	private String allowString = null;
 	
 	private String parseString = null;
+	
+	protected long interval = DEFAULT_TIMER_INTERVAL ;
 	/**
 	 * web portal
 	 */
-	private String portal = null;
+	protected String portal = null;
 	
 	private volatile Integer num = 0;
 	
@@ -91,7 +115,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	
 	private transient Condition notLimit = crawlLock.newCondition();
 	
-	private boolean lazy = true;
+	protected boolean lazy = true;
 	
 	/**
 	 * contains the specific program of parsing HTML,
@@ -99,6 +123,8 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	protected Parser parser = null;
 	
+	private Callback callback = new  DefaultCallback();
+			
 	private transient SoftReferenceObjectPool<WebClient> softPool = 
 			new SoftReferenceObjectPool<WebClient>(new WebClientPooledFactory());
 	/**
@@ -107,6 +133,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	public List<URL> crawlHTML(URL url){
 		List<URL> urls = new ArrayList<URL>();
+		if(maxDepth > 0 && url.getDepth() > maxDepth){
+			return urls;//too deep
+		}
 		boolean parsable = isParsable(url.getUrl());
 		if(parsable && parser.isParsed(url)){
 			return urls;
@@ -169,6 +198,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			FileOutputStream out = null;
 			BufferedInputStream in = null;
 			try{
+				System.out.println("URL 是:"+url.getUrl()+" local:"+url.getLocal());
 				executor = HttpExecutor.newInstance(url.getUrl());
 				executor.wrapperConn().cookies(cookies).execute();
 				Response response = executor.response();
@@ -182,10 +212,15 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 				while((size = in.read(b)) > 0){
 					out.write(b,0,size);
 				}
+				out.flush();
 			}catch(Exception e){
 				if(e instanceof FileNotFoundException){//404 ignore
-					//TODO make some logs
+					url.setStatus(0);//unavailable
 				}else{
+					if(url.getRetry() >= crawlPool.getMaxRetry()){
+						url.setStatus(0);
+						medias.add(url);
+					}
 					throw new RuntimeException(e);
 				}
 			}finally{
@@ -199,6 +234,13 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					end();
 				}
 			}
+			medias.add(url);
+		}
+	}
+	public void mediaDownloaded(Queue<URL> medias0) {
+		List<URL> failed = callback.mediaDownloaded(medias0);
+		if(null != failed && failed.size() > 0){
+			medias0.addAll(failed);//repush
 		}
 	}
 	/**
@@ -286,18 +328,37 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	}
 	@Override
 	protected void openInternal() {
+		timer.schedule(new TimerTask(){
+			@Override
+			public void run() {
+				if(medias.size() > 0){
+					mediaDownloaded(medias);
+				}
+			}
+			
+		}, interval, interval);
 		if(null != parser && parser instanceof Lifecycle){
 			((Lifecycle)parser).open();
 		}
 	}
 	@Override
 	protected void shutdownInternal() {
+		if(null != timer){
+			timer.cancel();
+			timer = null;
+		}
+		if(medias.size() > 0){
+			mediaDownloaded(medias);
+		}
 		if(null != parser && parser instanceof Lifecycle){
 			((Lifecycle)parser).shutdown();
 		}
 	}
 	@Override
 	protected void initalInternal() {
+		if(null == timer){
+			timer = new Timer();
+		}
 		if(null != parser && parser instanceof Lifecycle){
 			((Lifecycle)parser).initalize();
 		}
@@ -368,7 +429,21 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	public void setSimulate(boolean simulate) {
 		this.simulate = simulate;
 	}
-	public void open() {
+	public Callback getCallback() {
+		return  this.callback;
+	}
+	public void setCallback(Callback callback) {
+		this.callback = callback;
 		
 	}
+	public void setCrawlPool(CrawlerThreadPool pool) {
+		this.crawlPool = pool;
+	}
+	public Integer getMaxDepth() {
+		return maxDepth;
+	}
+	public void setMaxDepth(Integer maxDepth) {
+		this.maxDepth = maxDepth;
+	}
+	
 }

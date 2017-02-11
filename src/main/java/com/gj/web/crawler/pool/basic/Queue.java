@@ -1,6 +1,6 @@
 package com.gj.web.crawler.pool.basic;
 
-public interface Queue<T> {
+public interface Queue<T extends URL> {
 	/**
 	 * initialize the queue
 	 */
@@ -34,4 +34,10 @@ public interface Queue<T> {
 	 * clear the cache
 	 */
 	public void clear();
+	/**
+	 * the local mapping of key 
+	 * @param key
+	 * @return
+	 */
+	public Object local(String key);
 }

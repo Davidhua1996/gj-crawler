@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,8 +24,9 @@ import com.gj.web.crawler.lifecycle.BasicLifecycle.Status;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.parse.Parser;
+import com.gj.web.crawler.pool.basic.IMMultQueue;
 import com.gj.web.crawler.pool.basic.IMQueue;
-import com.gj.web.crawler.pool.basic.MapDBQueue;
+import com.gj.web.crawler.pool.basic.MapDBMultQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.InjectUtils;
@@ -66,7 +66,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	 */
 	private AtomicInteger num = new AtomicInteger(0);
 	
-	private Queue<URL> queue = new IMQueue<URL>();
+	private Queue<URL> queue = new IMMultQueue<URL>();
 	
 	private boolean useMapDB = false;
 	
@@ -96,7 +96,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private List<Monitor> monitors = new ArrayList<Monitor>();
 	
 	protected CrawlerThreadPoolImpl(){
-		
 	}
 	public static CrawlerThreadPool getInstance(){
 		if(null == pool){
@@ -111,8 +110,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public synchronized void open() {
 		if(!isOpen){
 			isOpen = true;
-			if(useMapDB && !(queue instanceof MapDBQueue)){
-				queue = new MapDBQueue<URL>();
+			if(useMapDB && !(queue instanceof MapDBMultQueue)){
+				queue = new MapDBMultQueue<URL>();
 			}
 			for(int i = 0;i < monitors.size();i++){
 				monitors.get(i).open(this);
@@ -187,6 +186,26 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		}finally{
 			poolLock.unlock();
 		}
+	}
+	public Object executeIfAbsent(URL url){
+		Object loc = null;
+		if(!isOpen) open();//open
+		CrawlerStatus status = statuses.get(url.getCid());
+		if(null == status){
+			logger.info("couldn't find the right crawler to execute the url");
+		}
+		status.addWork(url);
+		poolLock.lock();
+		try{
+			loc = queue.local(url.getUrl());
+			if(null == loc){
+				queue.pushWithKey(url, url.getUrl());
+			}
+		}finally{
+			poolLock.unlock();
+		}
+		return loc;
+		
 	}
 	public void execute(String cid, byte[] payload) {
 		CrawlerApi crawler = crawlers.get(cid);
@@ -306,13 +325,15 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									}
 								}else if(url.getType().matches("(photo)|(video)")){
 									crawler.crawlMedia(url, url.getLocal());
+								}else{
+									throw new RuntimeException("wrong");
 								}
 								status.finish(url);//finish the work
 							}
 						}catch(Exception ex){
 							Throwable root = ex;
 							if(url.getRetry() >= maxRetry){
-								logger.info("retry limited!",root);
+								logger.info("retry limited!\n"+root.getMessage());
 							}else{
 								url.setRetry(url.getRetry() + 1);//increase simplify
 								while( root.getCause() != null){
@@ -322,7 +343,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal());
 									executeWithKeyNot(url);
 								}else if(root instanceof ProtocolException){
-									logger.info("protocal exception :"+root.getMessage(),root);
+									logger.info("protocal exception : \n"+root.getMessage());
 								}else if(root instanceof IOException){
 									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
 									executeWithKeyNot(url);
@@ -333,6 +354,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 						}
 					}
 					if(!isOpen){//check available at last
+						System.out.println("队列里的值:"+queue.size());
 						break;
 					}
 				}
@@ -344,8 +366,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			}
 		}
 	}
-	
-	
+	public Object crawled(String url) {
+		return queue.local(url);
+	}
 	public boolean isUseMapDB() {
 		return useMapDB;
 	}

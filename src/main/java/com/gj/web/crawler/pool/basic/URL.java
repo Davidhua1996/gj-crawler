@@ -1,38 +1,45 @@
 package com.gj.web.crawler.pool.basic;
 
 public class URL {
-	//maybe it is in needed in MongoDB?
-	private String _id;
-	private String url;
-	private String cid;
+	//the depth of URL 
+	protected int depth = 0;
+	protected String url;
+	protected String cid;
 	//equals content-type
-	private String type = "html";
+	protected String type = "html";
 	//private String description; - it is not necessary
-	//0 - push | 1 - poll
-	private int status = 0;
+	//0 - unavailable | 1 - available
+	protected int status = 1;
 	//store by timestamp,used to sort
-	private long order = 0;
+	protected long order = 0;
 	//the location on disk for downloading
-	private String local = null;
+	protected String local = null;
 	//extended data
-	private byte[] payload = null;
+	protected byte[] payload = null;
 	//to record the retry count
-	private volatile int retry = 0;
+	protected volatile int retry = 0;
+	//attached URL, usually the parent URL
+	protected URL attached;
 	public URL(String cid, String url){
 		this.cid = cid;
 		this.url = url;
 		this.order = System.currentTimeMillis();
+	}
+	public URL(String cid, String url, int depth){
+		this(cid,url);
+		this.depth = depth;
 	}
 	public URL(String cid, String url, byte[] payload){
 		this.cid = cid;
 		this.url = url;
 		this.payload = payload;
 	}
-	public String get_id() {
-		return _id;
+	
+	public int getDepth() {
+		return depth;
 	}
-	public void set_id(String _id) {
-		this._id = _id;
+	public void setDepth(int depth) {
+		this.depth = depth;
 	}
 	public String getUrl() {
 		return url;
@@ -82,4 +89,11 @@ public class URL {
 	public void setPayload(byte[] payload) {
 		this.payload = payload;
 	}
+	public URL getAttached() {
+		return this.attached;
+	}
+	public void setAttached(URL attached) {
+		this.attached = attached;
+	}
+	
 }
