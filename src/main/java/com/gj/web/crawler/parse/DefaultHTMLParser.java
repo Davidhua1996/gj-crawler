@@ -65,7 +65,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	                                                                                                         
 	private final String TEMP = "/usr/tmp"; 
 	@JsonIgnore
-	private CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
+	private transient CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
 	/**
 	 * whether use thread pool
 	 */
@@ -282,7 +282,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		if(type.matches("(photo)|(video)")){
 			value = el.attr(attr!=null?attr:"src");
 		}else if(type.matches("text")){
-			value = attr!=null?el.attr(attr):el.text();//not to use method text() for keeping the HTML tag
+			value = attr!=null?el.attr(attr):el.ownText();//not to use method text() for keeping the HTML tag
 		}else if(type.matches("html")){
 			value = attr!=null?el.attr(attr):el.html();
 		}else{

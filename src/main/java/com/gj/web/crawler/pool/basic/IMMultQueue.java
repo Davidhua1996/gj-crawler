@@ -41,7 +41,6 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 		}
 		if(null != segment){
 			result = segment.getQueue().poll();
-			System.out.println("提取:"+result.getUrl()+" 线程："+Thread.currentThread().getName());
 		}
 		return result;
 	}
@@ -50,7 +49,7 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 		URL url = (URL)t;
 		Segment<T> segment = getSegment(url.getCid()+"-"+url.getType());
 		if(null == segment){
-			segment = segment(url.getCid(), 1, new IMQueue<T>());
+			segment = segment(url.getCid() + "-" + url.getType(), 1, new IMQueue<T>());
 		}
 		segment.getQueue().push(t);//maybe sub queue can solve the concurrent problem?
 	}
@@ -86,13 +85,15 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 		Segment<T>[] segs = new Segment[segments.length + 1];
 		System.arraycopy(segments, 0, segs, 0, segments.length);
 		segs[segments.length] = segment;
+		locations.put(segment.getType(), segments.length);
+		System.out.println("segment:"+segment.getType());
 		segments = segs;
 	}
 	public void pushWithKey(T t, String key) {
 		URL url = (URL)t;
 		Segment<T> segment = getSegment(url.getCid()+"-"+url.getType());
 		if(null == segment){
-			segment = segment(url.getCid(), 1, new IMQueue<T>());
+			segment = segment(url.getCid() + "-" +url.getType(), 1, new IMQueue<T>());
 		}
 		segment.getQueue().pushWithKey(t, key);
 	}

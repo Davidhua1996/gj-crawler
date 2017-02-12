@@ -93,7 +93,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 * store crawl pool address
 	 */
 	@JsonIgnore
-	protected CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
+	protected transient CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
 	/**
 	 * restrict the elements
 	 */
@@ -163,7 +163,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					}else{
 						elements = document.select("A[href~="+getAllowString()+"]");
 					}
-					for(int i = 0;i<elements.size();i++){
+					for(int i = 0;i < elements.size();i++){
 						String urlStr = elements.get(i).attr("href");
 						if(urlStr.startsWith("//")){
 							urlStr = "http:"+urlStr;
@@ -172,7 +172,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 							String before = url.getUrl();
 							urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
 						}
-						urls.add(new URL(null,urlStr));
+						urls.add(new URL(null,urlStr, url.getDepth() + 1));
 					}
 				}
 				if(null != store && null != parser){

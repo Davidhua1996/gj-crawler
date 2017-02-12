@@ -68,7 +68,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private Queue<URL> queue = new IMMultQueue<URL>();
 	
-	private boolean useMapDB = false;
+	private boolean useMapDB = true;
 	
 	private int maxRetry = DEFAULT_RETRY_COUNT;
 	/**
@@ -127,17 +127,17 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
 				CrawlerApi crawler = entry.getValue();
 				String cid = entry.getKey();
-				if(null != crawler.portal() && !crawler.isLazy()){
-					String urlStr = crawler.portal();
-					URL url = new URL(cid, urlStr);
-					execute(url);
-				}
 				//set crawler status
 				CrawlerStatus status = statuses.get(entry.getKey());
 				if(null == status){
 					status = new CrawlerStatus(entry.getValue());
 					status.initalize();
 					statuses.put(entry.getKey(), status);
+				}
+				if(null != crawler.portal() && !crawler.isLazy()){
+					String urlStr = crawler.portal();
+					URL url = new URL(cid, urlStr);
+					execute(url);
 				}
 				if(status.status() != Status.OPEN){
 					status.open();
