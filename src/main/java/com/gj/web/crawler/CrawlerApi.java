@@ -7,6 +7,7 @@ import com.gj.web.crawler.parse.Callback;
 import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.store.StoreStrategy;
 
 public interface CrawlerApi {
 	
@@ -82,4 +83,6 @@ public interface CrawlerApi {
 	public Integer getMaxDepth();
 	
 	public void setMaxDepth(Integer maxDepth);
+	
+	public void setStoreStrategy(StoreStrategy strategy);
 }

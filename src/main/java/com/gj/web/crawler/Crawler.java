@@ -37,6 +37,8 @@ import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.store.FileStoreStrategy;
+import com.gj.web.crawler.store.StoreStrategy;
 
 /**
  * the configuration of web crawler
@@ -123,7 +125,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	protected Parser parser = null;
 	
-	private Callback callback = new  DefaultCallback();
+	private transient Callback callback = new  DefaultCallback();
+	
+	private transient StoreStrategy strategy = new FileStoreStrategy();
 			
 	private transient SoftReferenceObjectPool<WebClient> softPool = 
 			new SoftReferenceObjectPool<WebClient>(new WebClientPooledFactory());
@@ -195,8 +199,6 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 		if(null != storePath && !storePath.trim().equals("")){
 			begin();
 			HttpExecutor executor = null;
-			FileOutputStream out = null;
-			BufferedInputStream in = null;
 			try{
 				System.out.println("URL 是:"+url.getUrl()+" local:"+url.getLocal());
 				executor = HttpExecutor.newInstance(url.getUrl());
@@ -204,15 +206,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 				Response response = executor.response();
 				File directory = new File(storePath.substring(0, storePath.lastIndexOf("/")));
 				directory.mkdirs();
-				out = new FileOutputStream(storePath);
-				in = new 
-						BufferedInputStream(response.getInputStream(),DataUtils.BUFFER_SIZE);//download from input stream
-				int size = -1;
-				byte[] b = new byte[DataUtils.BUFFER_SIZE];
-				while((size = in.read(b)) > 0){
-					out.write(b,0,size);
-				}
-				out.flush();
+				strategy.localStore(response.getInputStream(), storePath);
 			}catch(Exception e){
 				if(e instanceof FileNotFoundException){//404 ignore
 					url.setStatus(0);//unavailable
@@ -224,15 +218,8 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					throw new RuntimeException(e);
 				}
 			}finally{
-				try {
-					if(null != executor) executor.disconnect();
-					if(null != in)in.close();
-					if(null != out)out.close();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}finally{
-					end();
-				}
+				if(null != executor) executor.disconnect();
+				end();
 			}
 			medias.add(url);
 		}
@@ -444,6 +431,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	}
 	public void setMaxDepth(Integer maxDepth) {
 		this.maxDepth = maxDepth;
+	}
+	public void setStoreStrategy(StoreStrategy strategy) {
+		this.strategy = strategy;
 	}
 	
 }

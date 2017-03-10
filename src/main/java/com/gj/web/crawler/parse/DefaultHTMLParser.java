@@ -40,6 +40,8 @@ import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.DBType;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.store.FileStoreStrategy;
+import com.gj.web.crawler.store.StoreStrategy;
 import com.gj.web.crawler.utils.MapDBContext;
 
 public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializable{
@@ -60,6 +62,8 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	
 	@JsonIgnore
 	private transient Callback callback = new DefaultCallback();
+	
+	private transient StoreStrategy strategy = new FileStoreStrategy();
 	
 	private volatile List<Object> store = new CopyOnWriteArrayList<Object>();
 	                                                                                                         
@@ -291,27 +295,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		return value;
 	}
 	private void localStore(String content,String loc){//save 'content' directly
-		FileOutputStream out = null;
-		ByteBuffer buf = null;
-		try{
-			byte[] b = content.getBytes("UTF-8");
-			buf = ByteBuffer.wrap(b);
-			File directory = new File(loc.substring(0,loc.lastIndexOf("/")));
-			directory.mkdirs();
-			out = new FileOutputStream(loc);
-			out.getChannel().write(buf);
-			buf.clear();
-		}catch(IOException e){
-			throw new RuntimeException(e);
-		}finally{
-			if(null != out)
-				try {
-					out.close();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			buf.clear();
-		}
+		strategy.localStore(content, loc);
 	}
 	public String path(){//concat(rootDir,childDir)
 		String path = "";
@@ -461,5 +445,9 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 
 	public void setCrawlPool(CrawlerThreadPool pool) {
 		this.crawlPool = pool;
+	}
+
+	public void setStoreStrategy(StoreStrategy strategy) {
+		this.strategy = strategy;
 	}
 }

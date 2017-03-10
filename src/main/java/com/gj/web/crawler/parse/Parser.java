@@ -7,6 +7,7 @@ import org.jsoup.nodes.Document;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.store.StoreStrategy;
 
 public interface Parser {
 	
@@ -64,4 +65,6 @@ public interface Parser {
 	public boolean isParsed(URL url);
 	
 	public void setCrawlPool(CrawlerThreadPool pool);
+	
+	public void setStoreStrategy(StoreStrategy strategy);
 }
