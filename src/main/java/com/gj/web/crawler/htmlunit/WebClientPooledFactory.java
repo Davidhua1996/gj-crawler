@@ -25,7 +25,7 @@ public class WebClientPooledFactory extends BasePoolableObjectFactory<WebClient>
 		client.getOptions().setDoNotTrackEnabled(true);
 		client.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		client.waitForBackgroundJavaScript(1000);
-		client.getOptions().setTimeout(1200);
+		client.getOptions().setTimeout(10000);
 		client.setAjaxController(new NicelyResynchronizingAjaxController());
 		client.waitForBackgroundJavaScriptStartingBefore(1000);
 		return client;

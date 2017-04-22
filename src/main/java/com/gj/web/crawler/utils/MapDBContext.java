@@ -1,6 +1,7 @@
 package com.gj.web.crawler.utils;
 
 import java.io.File;
+import java.io.IOException;
 
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -15,6 +16,11 @@ public class MapDBContext {
 			db = configure(DBMaker.newTempFileDB()).make();
 		}else if(type == DBType.FILE){
 			File directory = new File(MapDBContext.DB_ROOT_DIR);
+			try {
+				Runtime.getRuntime().exec("chmod 700 " + DB_ROOT_DIR);
+			} catch (IOException e) {
+				//skip it
+			}
 			directory.mkdirs();
 			db = configure(DBMaker.newFileDB(new File(MapDBContext.DB_ROOT_DIR,dbname))).make();
 		}

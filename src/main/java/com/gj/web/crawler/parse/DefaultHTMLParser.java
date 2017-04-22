@@ -58,7 +58,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	private Object id = null;;
 	
 	@JsonIgnore
-	private transient DB db = null;
+	private volatile transient DB db = null;
 	
 	@JsonIgnore
 	private transient Callback callback = new DefaultCallback();
@@ -310,7 +310,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		return path;
 	}
 	private void pcommit0(){//avoid store too many objects in-memory but 'Timer' can't persist them in time
-		if(null != pmap && pmap.size() >= count){
+		if(!db.isClosed() && null != pmap && pmap.size() >= count){
 			synchronized(pmap){
 				if(pmap.size() >= count){
 					try{
@@ -361,16 +361,22 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 
 	@Override
 	protected void shutdownInternal() {
+		if(null != pool && !pool.isShutdown()){
+			pool.shutdown();
+			try {
+				pool.awaitTermination(1L, TimeUnit.HOURS);
+			} catch (InterruptedException e) {
+				logger.info(e.getMessage(),e);
+			}
+			pool = null;
+		}
 		if(null != timer){
 			timer.cancel();//cancel
 			timer = null;
 		}
 		this.pcommit();
 		db.close();
-		if(null != pool){
-			pool.shutdown();
-			pool = null;
-		}
+		pmap = null;
 	}
 
 	@Override
@@ -407,7 +413,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		}
 	}
 	public boolean isParsed(URL url) {
-		if(null == pmap){
+		if(null == db || null == pmap || db.isClosed()){
 			init(this.id);
 		}
 		return pmap.containsKey(url.getUrl());

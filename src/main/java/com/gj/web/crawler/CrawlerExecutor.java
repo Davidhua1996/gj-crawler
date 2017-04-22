@@ -1,11 +1,20 @@
 package com.gj.web.crawler;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 
+import com.gj.web.crawler.delay.CrawlerDelay;
+import com.gj.web.crawler.delay.CrawlerDelayDao;
+import com.gj.web.crawler.delay.CrawlerDelayTask;
+import com.gj.web.crawler.delay.DelayConsumer;
+import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.Monitor;
@@ -19,12 +28,15 @@ import com.gj.web.crawler.pool.basic.URL;
  *
  */
 public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
+	private static final Logger logger = LogManager.getLogger(DefaultHTMLParser.class);
 	/**
 	 * Data Access Object for Crawler
 	 */
 	protected CrawlerDao dao = null;
+	protected CrawlerDelayDao delayDao = null;
+	protected DelayConsumer delayConsumer = null;
 	protected CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
-
+	protected DelayQueue<CrawlerDelayTask> delayqueue = new DelayQueue<CrawlerDelayTask>();
 	public void open() {
 		pool.open();
 	}
@@ -94,10 +106,36 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		this.dao = dao;
 	}
 	
-	public List<CrawlerApi> loadAll(){
-		return this.dao.loadAll();
+	public CrawlerDelayDao getDelayDao() {
+		return delayDao;
+	}
+
+	public void setDelayDao(CrawlerDelayDao delayDao) {
+		this.delayDao = delayDao;
 	}
 	
+	public DelayConsumer getDelayConsumer() {
+		return delayConsumer;
+	}
+
+	public void setDelayConsumer(DelayConsumer delayConsumer) {
+		this.delayConsumer = delayConsumer;
+	}
+
+	public List<CrawlerApi> loadAll(){
+		List<CrawlerApi> crawlers = new ArrayList<CrawlerApi>();
+		if(null != this.dao){
+			crawlers = this.dao.loadAll();
+		}
+		return crawlers;
+	}
+	public List<CrawlerDelay> loadDelayAll(){
+		List<CrawlerDelay> delays = new ArrayList<CrawlerDelay>();
+		if(null != this.delayDao){
+			delays = this.delayDao.loadAllDelays();
+		}
+		return delays;
+	}
 	public void setUseMapDB(boolean DB) {
 		pool.setUseMapDB(DB);
 	}
@@ -110,18 +148,48 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	 */
 	public void afterPropertiesSet() throws Exception {
 		if(!pool.isOpen()){
-			if(null != dao){
-				Map<String,CrawlerApi> map = pool.getCrawlers();
-				List<CrawlerApi> crawlers = loadAll();
-				for(int i = 0;i<crawlers.size();i++){
-					CrawlerApi crawler = crawlers.get(i);
-					map.put(String.valueOf(crawler.getId()), crawler);
-				}
+			Map<String, CrawlerApi> map = pool.getCrawlers();
+			List<CrawlerApi> crawlers = loadAll();
+			for(int i = 0; i < crawlers.size(); i++){
+				CrawlerApi crawler = crawlers.get(i);
+				map.put(String.valueOf(crawler.getId()), crawler);
 			}
+			List<CrawlerDelay> delays = loadDelayAll();
+			for(int i = 0; i < delays.size(); i++){
+				CrawlerDelayTask delayTask = new CrawlerDelayTask(delays.get(i));
+				logger.trace("delay task creating... cralwer " + delayTask.getDelay().getCid());
+				delayqueue.offer(delayTask);
+			}
+			onDelayConsumer();
 			open();
 		}
 	}
-
+	private void onDelayConsumer(){
+		if(null != delayConsumer){
+			new Thread(new Runnable() {
+				public void run() {
+					while(true){
+						CrawlerDelayTask delayTask;
+						try {
+							delayTask = delayqueue.take();
+							logger.trace("delay task running... cralwer " + delayTask.getDelay().getCid());
+							delayConsumer.consume(delayTask);
+							if(delayTask.getExpire(TimeUnit.MINUTES) > 0){
+								logger.trace("delay task creating... cralwer " + delayTask.getDelay().getCid());
+								delayqueue.offer(new CrawlerDelayTask(delayTask.getDelay()));
+							}
+							delayTask = null;
+						} catch (InterruptedException e) {
+							logger.info("exception happened in consuming crawler's delay-task queue", e);
+						}
+					}
+				}
+			},"crawl-delay-task-consumer").start();
+		}
+	}
+	public void addDelay(CrawlerDelay delay){
+		delayqueue.offer( new CrawlerDelayTask(delay));
+	}
 	public List<Monitor> getMonitors() {
 		return pool.getMonitors();
 	}

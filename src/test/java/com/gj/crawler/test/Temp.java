@@ -19,8 +19,8 @@ import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 
 public class Temp {
 	public static void main(String[] args) {
-		youxiguancha();
-		
+//		youxiguancha();
+		steamsales();
 	}
 	public static void youxiguancha(){
 		Crawler crawler0 = new Crawler();//初始化爬虫类
@@ -48,6 +48,33 @@ public class Temp {
 		crawlers.put("youxiguancha-info", crawler0);
 		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
+		pool.open();
+	}
+	public static void steamsales(){
+		Crawler crawler0 = new Crawler();//初始化爬虫类
+		crawler0.setUseParams(false);//设置使用参数
+		crawler0.setLazy(false);//懒加载
+		crawler0.setSimulate(true);//设置为模拟浏览器形式
+		//#{parameter}为需要注入的属性
+		crawler0.setPortal("https://steamdb.info/sales/");
+//		crawler0.getAllowURL().add("/hangyezixun/\\w+.html");
+		crawler0.getParseURL().add("https://steamdb.info/sales/");
+//		crawler0.setRestrict("ul[class=main_list]");
+		crawler0.setConnNum(3);
+		crawler0.setMaxDepth(2);
+		DefaultHTMLParser parser0 = new DefaultHTMLParser();
+		parser0.setId("steams-sales");
+		parser0.setRootDir("/usr");//根目录
+		parser0.setChildDir("/steams-sales");//子目录
+		Map<String,String> patterns0 = new HashMap<String,String>();
+		patterns0.put("content", "{exp:'div[id=sales-section-daily-deal]',type:'html'}");
+		parser0.setPatterns(patterns0);
+		crawler0.setParser(parser0);
+		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
+		crawlers.put("steams-sales", crawler0);
+		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		pool.setCrawlers(crawlers);
+		pool.setPoolSize(5);
 		pool.open();
 	}
 	public static void gamersky(){
