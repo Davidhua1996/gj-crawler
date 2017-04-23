@@ -3,8 +3,13 @@ package com.gj.web.crawler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -14,6 +19,7 @@ import com.gj.web.crawler.delay.CrawlerDelay;
 import com.gj.web.crawler.delay.CrawlerDelayDao;
 import com.gj.web.crawler.delay.CrawlerDelayTask;
 import com.gj.web.crawler.delay.DelayConsumer;
+import com.gj.web.crawler.delay.DelayProvider;
 import com.gj.web.crawler.parse.DefaultHTMLParser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
@@ -29,14 +35,18 @@ import com.gj.web.crawler.pool.basic.URL;
  */
 public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	private static final Logger logger = LogManager.getLogger(DefaultHTMLParser.class);
+	private static final long DEFAULT_DELAY_PROVIDER_INTERVAL = 5000;
 	/**
 	 * Data Access Object for Crawler
 	 */
 	protected CrawlerDao dao = null;
 	protected CrawlerDelayDao delayDao = null;
 	protected DelayConsumer delayConsumer = null;
+	protected DelayProvider delayProvider = null;
 	protected CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
 	protected DelayQueue<CrawlerDelayTask> delayqueue = new DelayQueue<CrawlerDelayTask>();
+	private volatile boolean closed = false;
+	private Timer provider = new Timer("crawl-delay-task-provider");
 	public void open() {
 		pool.open();
 	}
@@ -161,6 +171,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 				delayqueue.offer(delayTask);
 			}
 			onDelayConsumer();
+			onDelayProvider();
 			open();
 		}
 	}
@@ -168,7 +179,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		if(null != delayConsumer){
 			new Thread(new Runnable() {
 				public void run() {
-					while(true){
+					while(!closed){
 						CrawlerDelayTask delayTask;
 						try {
 							delayTask = delayqueue.take();
@@ -179,13 +190,48 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 								delayqueue.offer(new CrawlerDelayTask(delayTask.getDelay()));
 							}
 							delayTask = null;
-						} catch (InterruptedException e) {
+						} catch (Exception e) {
 							logger.info("exception happened in consuming crawler's delay-task queue", e);
 						}
 					}
 				}
 			},"crawl-delay-task-consumer").start();
 		}
+	}
+	private void onDelayProvider(){
+		if(null != delayProvider){
+			long interval = delayProvider.interval();
+			if(interval <= 0){
+				interval = DEFAULT_DELAY_PROVIDER_INTERVAL;
+			}
+			provider.schedule(new TimerTask() {
+				@Override
+				public void run() {
+					try{
+						List<CrawlerDelay> delays = delayProvider.provide();
+						if(null != delays && delays.size() > 0){
+							for(int i = 0; i < delays.size(); i++){
+								CrawlerDelayTask delayTask = new CrawlerDelayTask(delays.get(i));
+								if(delayTask.getExpire(TimeUnit.MINUTES) > 0){
+									logger.trace("delay task creating... cralwer " + delayTask.getDelay().getCid());
+									delayqueue.offer(delayTask);
+								}
+							}
+						}
+					}catch(Exception e){
+						logger.info("exception happened in providing crawler's delay-task queue", e);
+					}
+				}
+			}, interval, interval);
+		}
+	}
+	/**
+	 * important to realse resource
+	 */
+//	@PreDestroy
+	public void destory(){
+		closed = true;
+		provider.cancel();
 	}
 	public void addDelay(CrawlerDelay delay){
 		delayqueue.offer( new CrawlerDelayTask(delay));
@@ -210,4 +256,12 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 		this.pool.setMaxRetry(maxRetry);
 	}
 
+	public DelayProvider getDelayProvider() {
+		return delayProvider;
+	}
+
+	public void setDelayProvider(DelayProvider delayProvider) {
+		this.delayProvider = delayProvider;
+	}
+	
 }

@@ -20,6 +20,7 @@ public class CrawlerDemo{
 		Crawler crawler = new Crawler();//初始化爬虫类
 		crawler.setLazy(false);//设置为非懒加载（爬虫池一打开就开始）
 //		crawler.setSimulate(true);
+		crawler.setConnNum(5);
 		crawler.setPortal("http://store.steampowered.com/search/?sort_by=Released_DESC&tags=-1");//设置入口链接
 		//设置允许继续爬取的链接，用于对页面上链接进行匹配，注意为正则表达式，对特殊符号.等用\\.或者[.]
 		crawler.getAllowURL().add("http[:]//store[.]steampowered[.]com/search.*");

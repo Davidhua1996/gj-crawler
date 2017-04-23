@@ -12,6 +12,9 @@ public class CrawlerDelayTask implements Delayed{
 	private long activetime;
 	public CrawlerDelayTask(CrawlerDelay delayVo){
 		this.delay = delayVo;
+		if(delay.getDelayMinute() <= 0){// what happend?
+			throw new IllegalArgumentException("delay time minute cann't be <= 0");
+		}
 		this.activetime = System.currentTimeMillis() + delay.getDelayMinute() * 60000;
 	}
 	
