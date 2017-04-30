@@ -15,6 +15,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool.impl.SoftReferenceObjectPool;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -277,6 +278,10 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 		return result;
 	}
 	private boolean isParsable(String pattern){
+		String parseStr = getParseString();
+		if(null == parseStr){
+			return false;
+		}
 		return pattern.matches(getParseString());
 	}
 	
@@ -286,7 +291,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 				allowString = DataUtils.regexJoin(allowURL);
 			}
 		}
-		return allowString;
+		return StringUtils.isBlank(allowString.trim())?null:allowString;
 	}
 	public String getParseString(){
 		if(null == parseString){
@@ -294,7 +299,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 				parseString = DataUtils.regexJoin(parseURL);
 			}
 		}
-		return parseString;
+		return StringUtils.isBlank(parseString.trim())?null:parseString;
 	}
 	private void begin() {
 		crawlLock.lock();
