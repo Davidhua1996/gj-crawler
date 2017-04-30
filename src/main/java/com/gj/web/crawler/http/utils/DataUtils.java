@@ -16,6 +16,9 @@ public class DataUtils {
 	 * @return
 	 */
 	public static String regexJoin(List<String> allowURL) {
+		return regexJoin(allowURL,"^","$");
+	}
+	public static String regexJoin(List<String> allowURL, String prefix, String suffix){
 		StringBuilder builder = new StringBuilder("");
 		for(int i = 0;i<allowURL.size();i++){
 			String tmp = allowURL.get(i);
@@ -26,7 +29,7 @@ public class DataUtils {
 				if(i > 0){
 					builder.append("|");
 				}
-				builder.append("("+tmp+")");
+				builder.append("("+prefix+tmp+suffix+")");
 			}
 		}
 		return builder.toString();

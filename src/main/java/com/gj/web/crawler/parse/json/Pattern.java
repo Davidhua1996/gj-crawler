@@ -36,6 +36,11 @@ public class Pattern implements Serializable{
 	 * you can set as you like
 	 */
 	private String attr = null;
+	/**
+	 * date pattern
+	 */
+	private String date;
+	
 	public String getExp() {
 		return exp;
 	}
@@ -65,5 +70,11 @@ public class Pattern implements Serializable{
 	}
 	public void setIdentify(boolean identify) {
 		this.identify = identify;
+	}
+	public String getDate() {
+		return date;
+	}
+	public void setDate(String date) {
+		this.date = date;
 	}
 }

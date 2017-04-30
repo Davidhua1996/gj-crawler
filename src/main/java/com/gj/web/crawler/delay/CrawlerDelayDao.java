@@ -1,6 +1,9 @@
 package com.gj.web.crawler.delay;
 
+import java.util.Date;
 import java.util.List;
+
+import org.springframework.stereotype.Repository;
 
 /**
  * Data Access Object,
@@ -14,5 +17,5 @@ public interface CrawlerDelayDao {
 	 * @return
 	 */
 	public <T extends CrawlerDelay> List<T> loadAllDelays();
-	
+
 }

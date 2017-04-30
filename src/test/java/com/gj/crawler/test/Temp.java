@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,9 +20,12 @@ import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 
 public class Temp {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception{
 //		youxiguancha();
-		steamsales();
+//		steamsales();
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+		format.parse("2017-04-26T15:16:21.000Z");
+//		System.out.println(format.format(new Date()));
 	}
 	public static void youxiguancha(){
 		Crawler crawler0 = new Crawler();//初始化爬虫类

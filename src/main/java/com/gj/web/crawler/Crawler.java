@@ -137,6 +137,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	public List<URL> crawlHTML(URL url){
 		List<URL> urls = new ArrayList<URL>();
+		System.out.println(url.getUrl());
 		if(maxDepth > 0 && url.getDepth() > maxDepth){
 			return urls;//too deep
 		}
@@ -156,6 +157,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			}
 			if(null != body && !body.trim().equals("")){
 				Document document = Jsoup.parse(body);
+//				System.out.println(document.html());
 				body = null;//release memory immediately
 				if(parsable){
 					store = document;
@@ -171,6 +173,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 						String urlStr = elements.get(i).attr("href");
 						if(urlStr.startsWith("//")){
 							urlStr = "http:"+urlStr;
+						}else if(urlStr.startsWith("/")){
+							String before = url.getUrl();
+							urlStr = before.replaceFirst("(http|https)://([^/]+)([\\S\\s]*)", "$1://$2"+urlStr);
 						}else if (urlStr.length() <= 4 ||
 								!urlStr.substring(0,4).equalsIgnoreCase("http")){
 							String before = url.getUrl();

@@ -14,7 +14,7 @@ public class WebClientPooledFactory extends BasePoolableObjectFactory<WebClient>
 	}
 	@Override
 	public WebClient makeObject() throws Exception {
-		WebClient client = new WebClient(BrowserVersion.CHROME);
+		WebClient client = new WebClient(BrowserVersion.BEST_SUPPORTED);
 		client.setJavaScriptEngine(new JscriptEngine(client));
 		client.getOptions().setCssEnabled(false);
 		client.getOptions().setJavaScriptEnabled(true);
@@ -25,7 +25,7 @@ public class WebClientPooledFactory extends BasePoolableObjectFactory<WebClient>
 		client.getOptions().setDoNotTrackEnabled(true);
 		client.getOptions().setThrowExceptionOnFailingStatusCode(false);
 		client.waitForBackgroundJavaScript(1000);
-		client.getOptions().setTimeout(10000);
+		client.getOptions().setTimeout(1000);
 		client.setAjaxController(new NicelyResynchronizingAjaxController());
 		client.waitForBackgroundJavaScriptStartingBefore(1000);
 		return client;

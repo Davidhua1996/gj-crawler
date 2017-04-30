@@ -18,12 +18,12 @@ public class HtmlUnitUtils {
 				String ajax = request.getAdditionalHeaders().get("X-Requested-With");
 				String accept = request.getAdditionalHeaders().get("Accept");
 				if(null != ajax && "XMLHttpRequest".equals(ajax)){
-					System.out.println(request.getUrl());
+//					System.out.println(request.getUrl());
 					return super.getResponse(request);
 				}
 				if(request.getUrl().getPath().endsWith(".js") || 
 						accept.indexOf("text/html") >= 0){
-					System.out.println(request.getUrl());
+//					System.out.println(request.getUrl());
 					return super.getResponse(request);
 				}
 				return createWebResponse(request, "", "text/html");

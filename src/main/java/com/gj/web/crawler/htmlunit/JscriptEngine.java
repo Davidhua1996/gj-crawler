@@ -4,6 +4,7 @@ import com.gargoylesoftware.htmlunit.InteractivePage;
 import com.gargoylesoftware.htmlunit.ScriptException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebWindow;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.javascript.JavaScriptEngine;
 import com.gargoylesoftware.htmlunit.javascript.host.Window;
 
@@ -36,6 +37,6 @@ public class JscriptEngine extends JavaScriptEngine{
             throw scriptException;
         }
         // Log the error; ScriptException instances provide good debug info.
-//        LOG.info("Caught script exception", scriptException);
+        //LOG.info("Caught script exception", scriptException);
     }
 }

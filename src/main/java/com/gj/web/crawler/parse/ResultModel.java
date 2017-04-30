@@ -3,6 +3,7 @@ package com.gj.web.crawler.parse;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -95,12 +96,30 @@ public class ResultModel implements Serializable{
 		}
 		return null;
 	}
-	public Long getDate(String key){//maybe it is in need
+	public Long getTime(String key){//maybe it is in need
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
+			if(obj[0] instanceof Date){
+				return ((Date)obj[0]).getTime();
+			}
 			SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			try{
 				return format.parse(obj[0].toString()).getTime();
+			}catch (ParseException e){
+				throw new RuntimeException(e);
+			}
+		}
+		return null;
+	}
+	public Date getDate(String key){
+		Object[] obj = inner.get(key);
+		if(null != obj && obj.length > 0){
+			if(obj[0] instanceof Date){
+				return (Date)obj[0];
+			}
+			SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			try{
+				return format.parse(obj[0].toString());
 			}catch (ParseException e){
 				throw new RuntimeException(e);
 			}

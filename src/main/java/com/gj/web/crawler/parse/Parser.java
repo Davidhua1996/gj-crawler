@@ -67,4 +67,8 @@ public interface Parser {
 	public void setCrawlPool(CrawlerThreadPool pool);
 	
 	public void setStoreStrategy(StoreStrategy strategy);
+	
+	public boolean isDebug();
+	
+	public void setDebug(boolean debug);
 }

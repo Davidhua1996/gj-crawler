@@ -7,6 +7,7 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.text.SimpleDateFormat;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,6 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
@@ -70,6 +72,8 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 	private final String TEMP = "/usr/tmp"; 
 	@JsonIgnore
 	private transient CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
+	
+	private boolean debug = false;
 	/**
 	 * whether use thread pool
 	 */
@@ -135,7 +139,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		if(null == db || null == pmap || db.isClosed()){
 			init(this.id);
 		}
-		if(null != doc && null == pmap.putIfAbsent(url.getUrl(),1)){
+		if(null != doc && (debug || null == pmap.putIfAbsent(url.getUrl(),1))){
 			try{
 				if(usePool){
 					if(null == pool){
@@ -143,18 +147,22 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 					}
 					pool.execute(new Runnable() {
 						public void run() {
-							parseMain(doc,url);
+							try{
+								parseMain(doc,url);
+							}catch(Exception e){
+								logger.info(e);
+							}
 						}
 					});
 				}else{
 					parseMain(doc,url);
 				}
 			}catch(Exception e){//catch the exception thrown from parsing process
-				//TODO Logger
+				logger.info(e);
 			}
 		}
 	}
-	private void parseMain(Document doc,URL url) {
+	private void parseMain(Document doc,URL url) throws Exception{
 		ResultModel model = new ResultModel();
 		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
@@ -167,12 +175,17 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			String exp = pattern.getExp();
 			String type = pattern.getType() != null?pattern.getType():"text"; // do you forget the type?
 			String attr = pattern.getAttr();
+			String date = pattern.getDate();
 			Elements elements = doc.select(exp);
 			if(pattern.isIdentify() && elements.size() > 0){
 				String value = parseElement(elements.get(0), type, attr);
 				String tmp = value.replaceAll("[\\/:*?\"<>|]", " ").trim();
-				subDir += (subDir.equals("/")?tmp:"_"+tmp); 
-				model.putAndAdd(key, value);
+				subDir += (subDir.equals("/")?tmp:"_"+tmp);
+				if(StringUtils.isNotBlank(pattern.getDate())){
+					model.putAndAdd(key, new SimpleDateFormat(date).parse(value));
+				}else{
+					model.putAndAdd(key, value);
+				}
 			}else{
 				for(int i = 0;i<elements.size();i++){
 					String value = parseElement(elements.get(i),type,attr);
@@ -181,6 +194,8 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 						src.setType(type);
 						formatURL(src);
 						download.put(key+"_"+i, src);
+					}else if(StringUtils.isNotBlank(pattern.getDate())){
+						model.putAndAdd(key, new SimpleDateFormat(date).parse(value));
 					}else{
 						model.putAndAdd(key, value);
 					}
@@ -416,7 +431,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 		if(null == db || null == pmap || db.isClosed()){
 			init(this.id);
 		}
-		return pmap.containsKey(url.getUrl());
+		return debug?false : pmap.containsKey(url.getUrl());
 	}
 	public Callback getCallback() {
 		return callback;
@@ -455,5 +470,13 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 
 	public void setStoreStrategy(StoreStrategy strategy) {
 		this.strategy = strategy;
+	}
+
+	public boolean isDebug() {
+		return debug;
+	}
+
+	public void setDebug(boolean debug) {
+		this.debug = debug;
 	}
 }
