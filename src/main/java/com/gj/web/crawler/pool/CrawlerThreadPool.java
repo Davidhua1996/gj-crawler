@@ -2,8 +2,6 @@ package com.gj.web.crawler.pool;
 
 import java.util.List;
 import java.util.Map;
-
-import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.pool.basic.URL;
 

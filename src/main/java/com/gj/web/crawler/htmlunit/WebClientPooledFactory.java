@@ -10,11 +10,12 @@ import com.gargoylesoftware.htmlunit.WebClient;
 
 public class WebClientPooledFactory extends BasePoolableObjectFactory<WebClient>{
 	static{
+		System.getProperties().put("org.apache.commons.logging.simplelog.defaultlog", "fatal");
 		LogFactory.getFactory().setAttribute("org.apache.commons.logging.Log","org.apache.commons.logging.impl.NoOpLog");
 	}
 	@Override
 	public WebClient makeObject() throws Exception {
-		WebClient client = new WebClient(BrowserVersion.BEST_SUPPORTED);
+		WebClient client = new WebClient(BrowserVersion.CHROME);
 		client.setJavaScriptEngine(new JscriptEngine(client));
 		client.getOptions().setCssEnabled(false);
 		client.getOptions().setJavaScriptEnabled(true);

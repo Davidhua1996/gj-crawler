@@ -19,7 +19,6 @@ public class DefaultCallback implements Callback,Serializable{
 	 * CN:解析爬虫结果
 	 */
 	public Object resolve(ResultModel result) {
-		System.out.println("到这里了");
 		Map<String,Object[]> inner = result.getInnerMap();
 		System.out.println("-----------------------------");
 		for(Entry<String,Object[]> entry : inner.entrySet()){

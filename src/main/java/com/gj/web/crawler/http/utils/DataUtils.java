@@ -6,6 +6,8 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.List;
 
+import com.gj.web.crawler.pool.basic.URL;
+
 public class DataUtils {
 	private static final String DATA_PREFIX = "GJ_";
 	private static SimpleDateFormat format = new SimpleDateFormat("yyyMMddHHmmssSSS");
@@ -70,11 +72,33 @@ public class DataUtils {
 			if(name.indexOf("?")>0){//remove string after '?'
 				name = name.substring(0,name.indexOf("?"));
 			}
+			if(name.lastIndexOf("/") > 0){
+				name = name.substring(name.lastIndexOf("/"));//remove the string before '/'
+			}
 			if(name.lastIndexOf(".") > -1){
 				String extension = name.substring(name.lastIndexOf("."));
 				newName += extension;
 			}
 		}
 		return newName;
+	}
+	/**
+	 * format URL string by context URL
+	 * @param before
+	 * @param urlStr
+	 * @return
+	 */
+	public static String formatURL(URL context, String urlStr){
+		if(urlStr.startsWith("//")){
+			urlStr = "http:"+urlStr;
+		}else if(urlStr.startsWith("/")){
+			String parent = context.getUrl();
+			urlStr = parent.replaceFirst("(http|https)://([^/]+)([\\S\\s]*)", "$1://$2"+urlStr);
+		}else if (urlStr.length() <= 4 ||
+				!urlStr.substring(0,4).equalsIgnoreCase("http")){
+			String parent = context.getUrl();
+			urlStr = parent.substring(0,parent.lastIndexOf("/"))+urlStr;
+		}
+		return urlStr;
 	}
 }

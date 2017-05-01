@@ -1,10 +1,7 @@
 package com.gj.web.crawler;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +14,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool.impl.SoftReferenceObjectPool;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -52,6 +51,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	private static final long serialVersionUID = -9356067239422904L;
 	
+	private static final Logger logger = LogManager.getLogger(Crawler.class);
 	/**
 	 * unique identify
 	 */
@@ -138,7 +138,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	public List<URL> crawlHTML(URL url){
 		List<URL> urls = new ArrayList<URL>();
-		System.out.println(url.getUrl());
+		if(logger.isInfoEnabled()){
+			logger.info("start to crawl HTML, url=" +url.getUrl());
+		}
 		if(maxDepth > 0 && url.getDepth() > maxDepth){
 			return urls;//too deep
 		}
@@ -172,16 +174,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					}
 					for(int i = 0;i < elements.size();i++){
 						String urlStr = elements.get(i).attr("href");
-						if(urlStr.startsWith("//")){
-							urlStr = "http:"+urlStr;
-						}else if(urlStr.startsWith("/")){
-							String before = url.getUrl();
-							urlStr = before.replaceFirst("(http|https)://([^/]+)([\\S\\s]*)", "$1://$2"+urlStr);
-						}else if (urlStr.length() <= 4 ||
-								!urlStr.substring(0,4).equalsIgnoreCase("http")){
-							String before = url.getUrl();
-							urlStr = before.substring(0,before.lastIndexOf("/"))+urlStr;
-						}
+						urlStr = DataUtils.formatURL(url, urlStr);
 						urls.add(new URL(null,urlStr, url.getDepth() + 1));
 					}
 				}
@@ -206,7 +199,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			begin();
 			HttpExecutor executor = null;
 			try{
-				System.out.println("URL 是:"+url.getUrl()+" local:"+url.getLocal());
+				if(logger.isInfoEnabled()){
+					logger.info("start to crawl Media, url=" +url.getUrl()+", local=" + url.getLocal());
+				}
 				executor = HttpExecutor.newInstance(url.getUrl());
 				executor.wrapperConn().cookies(cookies).execute();
 				Response response = executor.response();
@@ -241,7 +236,6 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	private Response connectAndResponse(URL url){
 		HttpExecutor executor = HttpExecutor.newInstance(url.getUrl());
-		System.out.println("URL 是:"+url.getUrl());
 		executor.wrapperConn().cookies(cookies).execute();// do like a browser
 		Response response = executor.response();
 		response.body();
@@ -354,7 +348,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	@Override
 	protected void initalInternal() {
 		if(null == timer){
-			timer = new Timer();
+			timer = new Timer(CRAWLER_MEDIA_SCHEDUAL_NAME+id);
 		}
 		if(null != parser && parser instanceof Lifecycle){
 			((Lifecycle)parser).initalize();

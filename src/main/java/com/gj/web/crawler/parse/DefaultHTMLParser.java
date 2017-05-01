@@ -1,12 +1,10 @@
 package com.gj.web.crawler.parse;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -111,7 +109,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			count = pmap.size() + COMMIT_PER_COUNT;	
 		} 
 		if(null == timer){
-			timer = new Timer();
+			timer = new Timer(PARSER_PERSIST_SCHEDUAL_NAME+id);
 		}
 	}
 	
@@ -182,7 +180,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 				String tmp = value.replaceAll("[\\/:*?\"<>|]", " ").trim();
 				subDir += (subDir.equals("/")?tmp:"_"+tmp);
 				if(StringUtils.isNotBlank(pattern.getDate())){
-					model.putAndAdd(key, new SimpleDateFormat(date).parse(value));
+					model.putAndAdd(key, new SimpleDateFormat(date).parse(value,new ParsePosition(0)));
 				}else{
 					model.putAndAdd(key, value);
 				}
@@ -195,7 +193,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 						formatURL(src);
 						download.put(key+"_"+i, src);
 					}else if(StringUtils.isNotBlank(pattern.getDate())){
-						model.putAndAdd(key, new SimpleDateFormat(date).parse(value));
+						model.putAndAdd(key, new SimpleDateFormat(date).parse(value,new ParsePosition(0)));
 					}else{
 						model.putAndAdd(key, value);
 					}
@@ -227,7 +225,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 				Elements imgs = htmlNode.select("img");//search all 'img' elements
 				for(int j = 0;j<imgs.size();j++){
 					Element el = imgs.get(j);
-					URL imgurl = new URL(url.getCid(),el.attr("src"));
+					URL imgurl = new URL(url.getCid(),DataUtils.formatURL(url,el.attr("src")));
 					formatURL(imgurl);
 					imgurl.setType("photo");
 					//generate image's name with original URL and index, index is the location of downloading
@@ -390,7 +388,7 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 			timer = null;
 		}
 		this.pcommit();
-		db.close();
+		if(!db.isClosed()) db.close();
 		pmap = null;
 	}
 

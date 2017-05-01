@@ -4,7 +4,6 @@ import com.gargoylesoftware.htmlunit.InteractivePage;
 import com.gargoylesoftware.htmlunit.ScriptException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebWindow;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.javascript.JavaScriptEngine;
 import com.gargoylesoftware.htmlunit.javascript.host.Window;
 
@@ -31,7 +30,7 @@ public class JscriptEngine extends JavaScriptEngine{
                 }
             }
         }
-        getWebClient().getJavaScriptErrorListener().scriptException(page, scriptException);
+//        getWebClient().getJavaScriptErrorListener().scriptException(page, scriptException);
         // Throw a Java exception if the user wants us to.
         if (getWebClient().getOptions().isThrowExceptionOnScriptError()) {
             throw scriptException;

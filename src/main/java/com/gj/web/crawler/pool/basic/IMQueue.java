@@ -14,6 +14,7 @@ public class IMQueue<T extends URL> implements Queue<T>{
 	private Node<T> head = new Node<T>();
 	private Node<T> tail = new Node<T>();
 	private Map<String,Object> record = new HashMap<String,Object>();
+	@SuppressWarnings("hiding")
 	private class Node<T>{
 		T data;
 		Node<T> next;

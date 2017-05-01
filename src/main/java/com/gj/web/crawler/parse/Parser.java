@@ -1,10 +1,7 @@
 package com.gj.web.crawler.parse;
 
-import java.util.List;
 
 import org.jsoup.nodes.Document;
-
-import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.store.StoreStrategy;
@@ -12,6 +9,8 @@ import com.gj.web.crawler.store.StoreStrategy;
 public interface Parser {
 	
 	public static final String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
+	
+	public static final String PARSER_PERSIST_SCHEDUAL_NAME = "schedual-persist-";
 	
 	public static final int DEFAULT_TIMER_INTERVAL = 3000;
 	

@@ -11,6 +11,8 @@ import com.gj.web.crawler.store.StoreStrategy;
 
 public interface CrawlerApi {
 	
+	public static final String CRAWLER_MEDIA_SCHEDUAL_NAME ="schedual-media-download-";
+	
 	public static final int DEFAULT_TIMER_INTERVAL = 5000;
 	
 	public static final int MAX_CONNECT_THREAD = 10;

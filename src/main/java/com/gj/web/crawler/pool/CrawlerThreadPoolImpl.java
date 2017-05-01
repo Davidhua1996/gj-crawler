@@ -15,23 +15,14 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
-import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.CrawlerStatus;
 import com.gj.web.crawler.lifecycle.BasicLifecycle.Status;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
-import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.IMMultQueue;
-import com.gj.web.crawler.pool.basic.IMQueue;
 import com.gj.web.crawler.pool.basic.MapDBMultQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.utils.InjectUtils;
-import com.gj.web.crawler.utils.MapDBContext;
-
 /**
  * do make a single pool to manager the crawler threads
  * @author David
@@ -139,9 +130,6 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					URL url = new URL(cid, urlStr);
 					execute(url);
 				}
-				if(status.status() != Status.OPEN){
-					status.open();
-				}
 			}
 		}
 	}
@@ -178,6 +166,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		if(null == status){
 			logger.info("couldn't find the right crawler to execute the url");
 		}
+		if(status.status() != Status.OPEN){
+			status.open();
+		}
 		status.addWork(url);
 		poolLock.lock();
 		try{
@@ -193,6 +184,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlerStatus status = statuses.get(url.getCid());
 		if(null == status){
 			logger.info("couldn't find the right crawler to execute the url");
+		}
+		if(status.status() != Status.OPEN){
+			status.open();
 		}
 		status.addWork(url);
 		poolLock.lock();
@@ -354,7 +348,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 						}
 					}
 					if(!isOpen){//check available at last
-						System.out.println("队列里的值:"+queue.size());
+						if(logger.isInfoEnabled()){
+							logger.info("the pool is ready to close,queue size is "+queue.size());
+						}
 						break;
 					}
 				}
