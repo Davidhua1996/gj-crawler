@@ -338,11 +338,11 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			timer.cancel();
 			timer = null;
 		}
-		if(medias.size() > 0){
-			mediaDownloaded(medias);
-		}
 		if(null != parser && parser instanceof Lifecycle){
 			((Lifecycle)parser).shutdown();
+		}
+		if(medias.size() > 0){
+			mediaDownloaded(medias);
 		}
 	}
 	@Override

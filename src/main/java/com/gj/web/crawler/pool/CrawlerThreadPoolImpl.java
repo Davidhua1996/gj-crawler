@@ -32,7 +32,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int MAX_POOL_SIZE = 100;
 	
-	private static final int MAX_FREE_TIME = 1000*16;
+	private static final int MAX_FREE_TIME = 1000*30;
 	
 	private static final int DEFAULT_RETRY_COUNT = 6;
 	

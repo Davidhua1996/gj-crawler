@@ -226,7 +226,6 @@ public class DefaultHTMLParser extends BasicLifecycle implements Parser,Serializ
 				for(int j = 0;j<imgs.size();j++){
 					Element el = imgs.get(j);
 					URL imgurl = new URL(url.getCid(),DataUtils.formatURL(url,el.attr("src")));
-					formatURL(imgurl);
 					imgurl.setType("photo");
 					//generate image's name with original URL and index, index is the location of downloading
 					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), index); 
