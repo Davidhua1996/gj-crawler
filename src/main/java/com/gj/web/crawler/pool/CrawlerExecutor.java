@@ -1,10 +1,11 @@
-package com.gj.web.crawler;
+package com.gj.web.crawler.pool;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -12,16 +13,16 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 
+import com.gj.web.crawler.CrawlerApi;
+import com.gj.web.crawler.CrawlerDao;
 import com.gj.web.crawler.delay.CrawlerDelay;
 import com.gj.web.crawler.delay.CrawlerDelayDao;
 import com.gj.web.crawler.delay.CrawlerDelayTask;
 import com.gj.web.crawler.delay.DelayConsumer;
 import com.gj.web.crawler.delay.DelayProvider;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
-import com.gj.web.crawler.pool.CrawlerThreadPool;
-import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
-import com.gj.web.crawler.pool.Monitor;
+import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.pool.exc.ExcReportStore;
 
 /**
  * the executor of all the crawlers,
@@ -31,7 +32,7 @@ import com.gj.web.crawler.pool.basic.URL;
  *
  */
 public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
-	private static final Logger logger = LogManager.getLogger(DefaultHTMLParser.class);
+	private static final Logger logger = LogManager.getLogger(Parser.class);
 	private static final long DEFAULT_DELAY_PROVIDER_INTERVAL = 5000;
 	/**
 	 * Data Access Object for Crawler
@@ -40,7 +41,7 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	protected CrawlerDelayDao delayDao = null;
 	protected DelayConsumer delayConsumer = null;
 	protected DelayProvider delayProvider = null;
-	protected CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+	protected CrawlerThreadPoolImpl pool = new CrawlerThreadPoolImpl();
 	protected DelayQueue<CrawlerDelayTask> delayqueue = new DelayQueue<CrawlerDelayTask>();
 	private volatile boolean closed = false;
 	private Timer provider = new Timer("crawl-delay-task-provider");
@@ -259,6 +260,21 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 
 	public void setDelayProvider(DelayProvider delayProvider) {
 		this.delayProvider = delayProvider;
+	}
+
+	public long getWorkQueueLen() {
+		return this.pool.getWorkQueueLen();
+	}
+	public long getActiveInterval() {
+		return this.pool.getActiveInterval();
+	}
+
+	public void setActiveInterval(long activeInterval) {
+		this.pool.setActiveInterval(activeInterval);
+	}
+
+	public ExcReportStore getExcReportStore() {
+		return this.pool.getExcReportStore();
 	}
 	
 }

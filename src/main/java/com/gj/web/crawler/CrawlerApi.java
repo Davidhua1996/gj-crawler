@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Queue;
 
 import com.gj.web.crawler.parse.Callback;
-import com.gj.web.crawler.parse.Parser;
+import com.gj.web.crawler.parse.ParserApi;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.store.StoreStrategy;
@@ -67,24 +67,17 @@ public interface CrawlerApi {
 	 * return Parser
 	 * @return
 	 */
-	public Parser getParser();
+	public ParserApi getParser();
 	/**
 	 * open the crawler
 	 */
 	public void open();
 	
 	public Callback getCallback();
-	
-	public void setCallback(Callback callback);
-	
-	public void setCrawlPool(CrawlerThreadPool pool);
 	/**
 	 * crawl deepth
 	 * @return
 	 */
 	public Integer getMaxDepth();
 	
-	public void setMaxDepth(Integer maxDepth);
-	
-	public void setStoreStrategy(StoreStrategy strategy);
 }

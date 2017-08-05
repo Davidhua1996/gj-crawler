@@ -7,6 +7,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 /**
@@ -20,7 +23,7 @@ public class ResultModel implements Serializable{
 	 * serialVersionUID
 	 */
 	private static final long serialVersionUID = -5743183223086940895L;
-	
+	private static final Logger logger = LogManager.getLogger(ResultModel.class);
 	public Map<String,Object[]> inner = new HashMap<String,Object[]>();
 	protected void put(String key ,Object[] value){
 		inner.put(key, value);
@@ -104,9 +107,9 @@ public class ResultModel implements Serializable{
 			}
 			SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			try{
-				return format.parse(obj[0].toString()).getTime();
+				return obj[0] != null ? format.parse(obj[0].toString()).getTime():null;
 			}catch (ParseException e){
-				throw new RuntimeException(e);
+				logger.error("ERROR occur method getData:"+e.getMessage());
 			}
 		}
 		return null;
@@ -119,7 +122,7 @@ public class ResultModel implements Serializable{
 			}
 			SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			try{
-				return format.parse(obj[0].toString());
+				return obj[0] != null?format.parse(obj[0].toString()):null;
 			}catch (ParseException e){
 				throw new RuntimeException(e);
 			}

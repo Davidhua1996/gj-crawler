@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
@@ -22,6 +24,9 @@ import com.gj.web.crawler.pool.basic.IMMultQueue;
 import com.gj.web.crawler.pool.basic.MapDBMultQueue;
 import com.gj.web.crawler.pool.basic.Queue;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.pool.exc.ExcReport;
+import com.gj.web.crawler.pool.exc.ExcReportStore;
+import com.gj.web.crawler.pool.exc.IMExcReportStore;
 import com.gj.web.crawler.utils.InjectUtils;
 /**
  * do make a single pool to manager the crawler threads
@@ -36,9 +41,13 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int DEFAULT_RETRY_COUNT = 6;
 	
+	private static final long DEFAULT_ACTIVE_INTERVAL = 60*5;
+	
 	private static final Logger logger = LogManager.getLogger(CrawlerThreadPool.class);
 	
 	private static final String DEFAULT_THREAD_PREFIX = "http-crawl-exec-";
+	
+	private static final String DEFUALT_ACTIVE_NAME = "http-crawl-active";
 	
 	private static CrawlerThreadPool pool;
 	
@@ -62,6 +71,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private boolean useMapDB = true;
 	
 	private int maxRetry = DEFAULT_RETRY_COUNT;
+	
+	private long activeInterval = DEFAULT_ACTIVE_INTERVAL;
+	
+	private Thread activeRun = null;
 	/**
 	 * store crawlers
 	 */
@@ -76,7 +89,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private ReentrantLock poolLock = new ReentrantLock();
 	
 	private Condition notEmpty = poolLock.newCondition();
-	
+	/**
+	 * to store exception 
+	 */
+	private ExcReportStore excReportStore = new IMExcReportStore();
 	/**
 	 * switch
 	 */
@@ -87,6 +103,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private List<Monitor> monitors = new ArrayList<Monitor>();
 	
 	protected CrawlerThreadPoolImpl(){
+		pool = this;
 	}
 	public static CrawlerThreadPool getInstance(){
 		if(null == pool){
@@ -104,10 +121,21 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			if(useMapDB && !(queue instanceof MapDBMultQueue)){
 				queue = new MapDBMultQueue<URL>();
 			}
-			for(int i = 0;i < monitors.size();i++){
-				monitors.get(i).open(this);
+			try{
+				for(int i = 0;i < monitors.size();i++){
+					monitors.get(i).open(this);
+				}
+			}catch(Exception e){
+				logger.error("monitor open() method occurred error ,msg = " + e.getMessage());
 			}
 			//open threads
+			//check if the "active thread" is still running
+			if(activeRun != null && activeRun.isAlive()){
+				activeRun.interrupt();//destroy it
+				activeRun = null;
+			}
+			activeRun = new Thread(new ActiveRunner(), DEFUALT_ACTIVE_NAME);
+			activeRun.start();
 			int initialSize = num.get();// that means threads in pool didn't close totally before
 			for(int i = initialSize ;i < poolSize;i++ ){
 				Worker worker = new Worker();
@@ -148,8 +176,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 					status.shutdown();
 				}
 			}
-			for(int i = 0;i < monitors.size();i++){
-				monitors.get(i).close(this);
+			try{
+				for(int i = 0;i < monitors.size();i++){
+					monitors.get(i).close(this);
+				}
+			}catch(Exception e){
+				logger.error("monitor close() method occurred error ,msg = " + e.getMessage());
 			}
 		}
 		System.gc();
@@ -270,6 +302,24 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private synchronized int nextThreadId(){
 		return ++threadinitTimes;
 	}
+	private class ActiveRunner implements Runnable{
+		public void run() {
+			while(true){
+				try{
+					TimeUnit.SECONDS.sleep(activeInterval);
+					if(!isOpen){
+						break;
+					}
+					for(int i = 0;i < monitors.size(); i ++){
+						monitors.get(i).active(pool);
+					}
+				}catch(Exception e){
+					logger.error(Thread.currentThread().getName() + " interrupted while running ,msg = " + e.getMessage());
+				}
+			}
+		}
+		
+	}
 	private class Worker implements Runnable {
 		//start to run
 		public void run() {
@@ -327,7 +377,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 						}catch(Exception ex){
 							Throwable root = ex;
 							if(url.getRetry() >= maxRetry){
-								logger.info("retry limited!\n"+root.getMessage());
+								logger.error("retry limited!\n"+root.getMessage());
+								excReportStore.add(new ExcReport(url, ex));
 							}else{
 								url.setRetry(url.getRetry() + 1);//increase simplify
 								while( root.getCause() != null){
@@ -342,7 +393,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
 									executeWithKeyNot(url);
 								}else{
-									ex.printStackTrace();
+									logger.error("unknown error occured: " + ex.getMessage());
+									excReportStore.add(new ExcReport(url, ex));
 								}
 							}
 						}
@@ -401,6 +453,18 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	}
 	public void setMaxRetry(int maxRetry) {
 		this.maxRetry = maxRetry;
+	}
+	public long getWorkQueueLen() {
+		return queue.size();
+	}
+	public ExcReportStore getExcReportStore(){
+		return excReportStore;
+	}
+	public long getActiveInterval() {
+		return activeInterval;
+	}
+	public void setActiveInterval(long activeInterval) {
+		this.activeInterval = activeInterval;
 	}
 	
 }

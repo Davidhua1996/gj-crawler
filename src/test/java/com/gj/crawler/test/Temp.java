@@ -15,7 +15,7 @@ import sun.management.FileSystem;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.lifecycle.Lifecycle;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
+import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 
@@ -39,7 +39,7 @@ public class Temp {
 		crawler0.setRestrict("ul[class=main_list]");
 		crawler0.setConnNum(3);
 		crawler0.setMaxDepth(2);
-		DefaultHTMLParser parser0 = new DefaultHTMLParser();
+		Parser parser0 = new Parser();
 		parser0.setId("youxiguancha-info");
 		parser0.setRootDir("/usr");//根目录
 		parser0.setChildDir("/youxiguancha-info");//子目录
@@ -51,7 +51,7 @@ public class Temp {
 		crawler0.setParser(parser0);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("youxiguancha-info", crawler0);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		CrawlerThreadPoolImpl pool = (CrawlerThreadPoolImpl)CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.open();
 	}
@@ -67,7 +67,7 @@ public class Temp {
 //		crawler0.setRestrict("ul[class=main_list]");
 		crawler0.setConnNum(3);
 		crawler0.setMaxDepth(2);
-		DefaultHTMLParser parser0 = new DefaultHTMLParser();
+		Parser parser0 = new Parser();
 		parser0.setId("steams-sales");
 		parser0.setRootDir("/usr");//根目录
 		parser0.setChildDir("/steams-sales");//子目录
@@ -77,7 +77,7 @@ public class Temp {
 		crawler0.setParser(parser0);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("steams-sales", crawler0);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		CrawlerThreadPoolImpl pool = (CrawlerThreadPoolImpl)CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.setPoolSize(5);
 		pool.open();
@@ -93,7 +93,7 @@ public class Temp {
 		crawler0.getParseURL().add("http://www.bilibili.com/video/av\\w+");
 		crawler0.setRestrict("ul[class=ajax-render]");
 		crawler0.setConnNum(1);
-		DefaultHTMLParser parser0 = new DefaultHTMLParser();
+		Parser parser0 = new Parser();
 		parser0.setId("bilibili");
 		parser0.setRootDir("/usr");//根目录
 		parser0.setChildDir("/bilibili");//子目录
@@ -113,7 +113,7 @@ public class Temp {
 		crawler.getParseURL().add("http://www.gamersky.com/news/\\w+/\\w+.shtml");
 		crawler.setRestrict("div[class=Mid2_L]");
 		crawler.setConnNum(1);
-		DefaultHTMLParser parser = new DefaultHTMLParser();
+		Parser parser = new Parser();
 		parser.setId("gamersky");
 		parser.setRootDir("/usr");
 		parser.setChildDir("/gamersky");
@@ -125,7 +125,7 @@ public class Temp {
 		parser.setPatterns(patterns);
 		crawler.setParser(parser);
 		crawlers.put("gamersky", crawler);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		CrawlerThreadPoolImpl pool = (CrawlerThreadPoolImpl)CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.open();
 		for(int i = 1;i < 2;i++){

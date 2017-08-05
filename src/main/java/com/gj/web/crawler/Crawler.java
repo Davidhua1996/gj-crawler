@@ -33,7 +33,7 @@ import com.gj.web.crawler.lifecycle.BasicLifecycle;
 import com.gj.web.crawler.lifecycle.Lifecycle;
 import com.gj.web.crawler.parse.Callback;
 import com.gj.web.crawler.parse.DefaultCallback;
-import com.gj.web.crawler.parse.Parser;
+import com.gj.web.crawler.parse.ParserApi;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.pool.basic.URL;
@@ -124,7 +124,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 * contains the specific program of parsing HTML,
 	 * such as parameter mapping
 	 */
-	protected Parser parser = null;
+	protected ParserApi parser = null;
 	
 	private transient Callback callback = new  DefaultCallback();
 	
@@ -378,10 +378,10 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	public void setRestrict(String restrict) {
 		this.restrict = restrict;
 	}
-	public Parser getParser() {
+	public ParserApi getParser() {
 		return this.parser;
 	}
-	public void setParser(Parser parser) {
+	public void setParser(ParserApi parser) {
 		this.parser = parser;
 	}
 	public List<String> getParseURL() {

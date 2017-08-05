@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import com.gj.web.crawler.Crawler;
 import com.gj.web.crawler.CrawlerApi;
-import com.gj.web.crawler.parse.DefaultHTMLParser;
+import com.gj.web.crawler.parse.Parser;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
 import com.gj.web.crawler.pool.CrawlerThreadPoolImpl;
 import com.gj.web.crawler.utils.InjectUtils;
@@ -32,7 +32,7 @@ public class CrawlerDemo{
 		crawler.getCookies().add("birthtime=824223601");
 		//restrict，顾名思义，限制的意思，只提取页面上限定标签范围内的链接(使得爬虫更有针对性）
 		crawler.setRestrict("*[class=search_pagination],div[id=search_result_container]");
-		DefaultHTMLParser parser = new DefaultHTMLParser();//初始化HTML解析器
+		Parser parser = new Parser();//初始化HTML解析器
 		parser.setId("steam");
 		//设置解析的本地文件夹目录（用于存储需要下载的文件）
 		parser.setRootDir("/usr");//根目录
@@ -61,7 +61,7 @@ public class CrawlerDemo{
 		crawler.setParser(parser);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("steam", crawler);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		CrawlerThreadPoolImpl pool = (CrawlerThreadPoolImpl)CrawlerThreadPoolImpl.getInstance();
 		pool.setUseMapDB(true);
 		pool.setPoolSize(5);
 		pool.setCrawlers(crawlers);
@@ -84,7 +84,7 @@ public class CrawlerDemo{
 		crawler.getParseURL().add("http://www.bilibili.com/video/av\\w+");
 		crawler.setRestrict("ul[class=ajax-render]");
 //		crawler.setRestrict("div[class=content clearfix]");
-		DefaultHTMLParser parser = new DefaultHTMLParser();
+		Parser parser = new Parser();
 		parser.setRootDir("/usr");//根目录
 		parser.setChildDir("/bilibili");//子目录
 		Map<String,String> patterns = new HashMap<String,String>();
@@ -95,7 +95,7 @@ public class CrawlerDemo{
 		crawler.setParser(parser);
 		Map<String,CrawlerApi> crawlers = new HashMap<String,CrawlerApi>();
 		crawlers.put("bilibili", crawler);
-		CrawlerThreadPool pool = CrawlerThreadPoolImpl.getInstance();
+		CrawlerThreadPoolImpl pool = (CrawlerThreadPoolImpl)CrawlerThreadPoolImpl.getInstance();
 		pool.setCrawlers(crawlers);
 		pool.open();
 		for(int i = 1;i<10;i++){

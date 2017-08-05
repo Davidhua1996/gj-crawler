@@ -115,7 +115,12 @@ public class DefaultResponse implements Response {
 	}
 	public InputStream getInputStream() {
 		try {
-			return this.con.getInputStream();
+			InputStream in = this.con.getInputStream();
+			if(null != con.getHeaderField("Content-Encoding") 
+					&& con.getHeaderField("Content-Encoding").equals("gzip")){
+				in = new GZIPInputStream(in);
+			}
+			return in;
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

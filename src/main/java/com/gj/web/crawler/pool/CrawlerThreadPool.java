@@ -2,8 +2,11 @@ package com.gj.web.crawler.pool;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.pool.basic.URL;
+import com.gj.web.crawler.pool.exc.ExcReportStore;
 
 
 /**
@@ -49,36 +52,15 @@ public interface CrawlerThreadPool extends ThreadPool{
 	 * @return
 	 */
 	public Map<String, CrawlerApi> getCrawlers();
-	/**
-	 * set crawlers into pool
-	 * @param crawlers
-	 */
-	public void setCrawlers(Map<String, CrawlerApi> crawlers);
-	/**
-	 * set the max size of pool
-	 * @param size
-	 */
-	public void setPoolSize(Integer size);
 	
 	public Integer getPoolSize();
-	/**
-	 * set the max free time of pool
-	 * @param free
-	 */
-	public void setMaxFree(Integer free);
 	
 	public Integer getMaxFree();
-	/**
-	 * switch of mapDB
-	 * @param DB
-	 */
-	public void setUseMapDB(boolean DB);
 	
 	public boolean isUseMapDB();
 	
 	public List<Monitor> getMonitors();
 	
-	public void setMonitors(List<Monitor> monitors);
 	/**
 	 * execute URL, if URL has been crawled
 	 * return the local mapping of URL else return null;
@@ -89,5 +71,10 @@ public interface CrawlerThreadPool extends ThreadPool{
 	
 	public int getMaxRetry(); 
 	
-	public void setMaxRetry(int maxRetry);
+	public long getWorkQueueLen();
+	
+	public ExcReportStore getExcReportStore();
+	
+	public long getActiveInterval();
+	
 }
