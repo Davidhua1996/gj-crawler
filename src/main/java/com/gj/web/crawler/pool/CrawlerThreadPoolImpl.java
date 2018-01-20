@@ -15,26 +15,28 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.gj.web.crawler.pool.basic.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.gj.web.crawler.CrawlerApi;
 import com.gj.web.crawler.CrawlerStatus;
 import com.gj.web.crawler.lifecycle.BasicLifecycle.Status;
-import com.gj.web.crawler.pool.basic.IMMultQueue;
-import com.gj.web.crawler.pool.basic.MapDBMultQueue;
-import com.gj.web.crawler.pool.basic.Queue;
-import com.gj.web.crawler.pool.basic.URL;
 import com.gj.web.crawler.pool.exc.ExcReport;
 import com.gj.web.crawler.pool.exc.ExcReportStore;
 import com.gj.web.crawler.pool.exc.IMExcReportStore;
 import com.gj.web.crawler.utils.InjectUtils;
+
+import javax.swing.table.AbstractTableModel;
+
 /**
  * do make a single pool to manager the crawler threads
  * @author David
  *
  */
 public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
-	
+
+	private static final String DEFAULT_POOL_ID = "default";
+
 	private static final int MAX_POOL_SIZE = 100;
 	
 	private static final int MAX_FREE_TIME = 1000*30;
@@ -47,11 +49,13 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final String DEFAULT_THREAD_PREFIX = "http-crawl-exec-";
 	
-	private static final String DEFUALT_ACTIVE_NAME = "http-crawl-active";
+	private static final String DEFUALT_ACTIVE_NAME = "http-crawl-active-";
 	
 	private static CrawlerThreadPool pool;
-	
-	private static volatile int threadinitTimes = 0;
+
+	private String id = DEFAULT_POOL_ID;
+
+	private volatile int threadinitTimes = 0;
 	/**
 	 * pool size
 	 */
@@ -66,10 +70,14 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	 */
 	private AtomicInteger num = new AtomicInteger(0);
 	
-	private Queue<URL> queue = new IMMultQueue<URL>();
-	
 	private boolean useMapDB = true;
-	
+
+	private boolean dereplicate = true;
+
+	private int derepExpire = -1;
+
+	private AbstractedQueue<URL> queue = new IMMultQueue<URL>();
+
 	private int maxRetry = DEFAULT_RETRY_COUNT;
 	
 	private long activeInterval = DEFAULT_ACTIVE_INTERVAL;
@@ -103,13 +111,30 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	private List<Monitor> monitors = new ArrayList<Monitor>();
 	
 	protected CrawlerThreadPoolImpl(){
-		pool = this;
+		this(true, MAX_POOL_SIZE);
+	}
+	protected CrawlerThreadPoolImpl(boolean useMapDB, int poolSize){
+		this.useMapDB = useMapDB;
+		this.poolSize = poolSize;
 	}
 	public static CrawlerThreadPool getInstance(){
+		return getInstance(true, MAX_POOL_SIZE);
+	}
+
+	/**
+	 * when you want multi-instances
+	 * @return
+	 */
+	public static CrawlerThreadPool newInstance(String id, boolean useMapDB, int poolSize){
+		CrawlerThreadPoolImpl newPool = new CrawlerThreadPoolImpl(useMapDB, poolSize);
+		newPool.id = id;
+		return newPool;
+	}
+	public static CrawlerThreadPool getInstance(boolean useMapDB, int poolSize){
 		if(null == pool){
 			synchronized(CrawlerThreadPool.class){
 				if(null == pool){
-					pool = new CrawlerThreadPoolImpl();
+					pool = new CrawlerThreadPoolImpl(useMapDB, poolSize);
 				}
 			}
 		}
@@ -120,6 +145,8 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			isOpen = true;
 			if(useMapDB && !(queue instanceof MapDBMultQueue)){
 				queue = new MapDBMultQueue<URL>();
+				queue.setDerepExpire(derepExpire);
+				queue.setDereplicate(dereplicate);
 			}
 			try{
 				for(int i = 0;i < monitors.size();i++){
@@ -134,17 +161,20 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 				activeRun.interrupt();//destroy it
 				activeRun = null;
 			}
-			activeRun = new Thread(new ActiveRunner(), DEFUALT_ACTIVE_NAME);
+			activeRun = new Thread(new ActiveRunner(this), DEFUALT_ACTIVE_NAME + id);
 			activeRun.start();
 			int initialSize = num.get();// that means threads in pool didn't close totally before
 			for(int i = initialSize ;i < poolSize;i++ ){
 				Worker worker = new Worker();
-				new Thread(worker,DEFAULT_THREAD_PREFIX + nextThreadId()).start();
+				new Thread(worker,DEFAULT_THREAD_PREFIX + id + "-" +nextThreadId()).start();
 				num.incrementAndGet();
 			}
 			//start to crawl
 			for(Entry<String,CrawlerApi> entry : crawlers.entrySet()){
 				CrawlerApi crawler = entry.getValue();
+				if(null != crawler.getParser()){
+					crawler.getParser().setCrawlPool(this);
+				}
 				String cid = entry.getKey();
 				//set crawler status
 				CrawlerStatus status = statuses.get(entry.getKey());
@@ -197,6 +227,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlerStatus status = statuses.get(url.getCid());
 		if(null == status){
 			logger.info("couldn't find the right crawler to execute the url");
+			return;
 		}
 		if(status.status() != Status.OPEN){
 			status.open();
@@ -237,7 +268,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		CrawlerApi crawler = crawlers.get(cid);
 		if(null != crawler && !crawler.isUseParams()){
 			URL url = new URL(cid,crawler.portal(), payload);
-			execute(url);
+			executeWithKeyNot(url);
 		}
 	}
 	public void execute(String cid, Object[] params) {
@@ -254,7 +285,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			String portal = InjectUtils.inject(crawler.portal(), params);
 			portal = portal.replace("\"", "");
 			URL url = new URL(cid, portal, payload);
-			execute(url);
+			executeWithKeyNot(url);
 		}
 	}
 	
@@ -264,13 +295,23 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			String portal = InjectUtils.inject(crawler.portal(), params);
 			portal = portal.replace("\"", "");
 			URL url = new URL(cid, portal, payload);
-			execute(url);
+			executeWithKeyNot(url);
 		}
 	}
 	/**
 	 * @param url
 	 */
 	private void executeWithKeyNot(URL url){
+		Object loc = null;
+		if(!isOpen) open();//open
+		CrawlerStatus status = statuses.get(url.getCid());
+		if(null == status){
+			logger.info("couldn't find the right crawler to execute the url");
+		}
+		if(status.status() != Status.OPEN){
+			status.open();
+		}
+		status.addWork(url);
 		poolLock.lock();
 		try{
 			queue.push(url);//retry
@@ -294,7 +335,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			logger.trace("create new thread:"+(queueNum - actNum));
 			for(int i = 0;i<queueNum - actNum;i++){
 				Worker worker = new Worker();
-				new Thread(worker,DEFAULT_THREAD_PREFIX+nextThreadId()).start();
+				new Thread(worker,DEFAULT_THREAD_PREFIX + id + "-" + nextThreadId()).start();
 				num.incrementAndGet();
 			}
 		}
@@ -303,6 +344,10 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 		return ++threadinitTimes;
 	}
 	private class ActiveRunner implements Runnable{
+		private CrawlerThreadPool pool;
+		public ActiveRunner(CrawlerThreadPool pool){
+			this.pool = pool;
+		}
 		public void run() {
 			while(true){
 				try{
@@ -385,12 +430,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									root = root.getCause();
 								}
 								if(root instanceof SocketTimeoutException){
-									logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal());
+									logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
 									executeWithKeyNot(url);
 								}else if(root instanceof ProtocolException){
 									logger.info("protocal exception : \n"+root.getMessage());
 								}else if(root instanceof IOException){
-									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal());
+									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
 									executeWithKeyNot(url);
 								}else{
 									logger.error("unknown error occured: " + ex.getMessage());
@@ -466,5 +511,20 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public void setActiveInterval(long activeInterval) {
 		this.activeInterval = activeInterval;
 	}
-	
+
+	public boolean isDereplicate() {
+		return dereplicate;
+	}
+
+	public void setDereplicate(boolean dereplicate) {
+		this.dereplicate = dereplicate;
+	}
+
+	public int getDerepExpire() {
+		return derepExpire;
+	}
+
+	public void setDerepExpire(int derepExpire) {
+		this.derepExpire = derepExpire;
+	}
 }

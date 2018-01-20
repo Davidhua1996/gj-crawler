@@ -4,33 +4,39 @@ import org.mapdb.HTreeMap;
 
 import com.gj.web.crawler.utils.MapDBContext;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class MapDBMultQueue<T extends URL> extends IMMultQueue<T>{
 	private static final String DISTINCT_NAME = "distinct";
-	private HTreeMap<String,Object> dMap = null;
+	private HTreeMap<String,Object> dbRecord = null;
+	private Map<String,String> locals = new HashMap<String, String>();
 	public MapDBMultQueue(){
-		dMap = MapDBContext.getDB(null,DBType.TEMP).getHashMap(DISTINCT_NAME);
-		dMap.clear();
-		
+		dbRecord = MapDBContext.getDB(null,DBType.TEMP).getHashMap(DISTINCT_NAME);
+		dbRecord.clear();
 	}
 	@Override
 	public void pushWithKey(T t, String key) {
-		if(!dMap.containsKey(key)){
-			if(null != ((URL)t).getLocal()){
-				dMap.put(key, ((URL)t).getLocal());
-			}else{
-				dMap.put(key, 0);//because value cannot be null,set 0 in default
+		if(dereplicate){
+			Long expire = (Long)dbRecord.get(key);
+			if(null == expire || (expire > 0 && expire < System.currentTimeMillis())){
+				dbRecord.put(key, derepExpire <= 0?derepExpire: System.currentTimeMillis() + derepExpire);
+				if(null != t.getLocal()){
+					locals.put(key, t.getLocal());
+				}
+				super.push(t);
 			}
+		}else if(!dereplicate){
 			super.push(t);
 		}
 	}
 	@Override
 	public void clear() {
-		dMap.clear();
+		dbRecord.clear();
 		super.clear();
 	}
 	@Override
 	public Object local(String key) {
-		return dMap.get(key);
+		return locals.get(key);
 	}
-	
 }

@@ -5,19 +5,40 @@
 			<ThresholdFilter level="trace" onMatch="ACCEPT" onMismatch="DENY"/>
 			<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{50} - %msg%n"/>
 		</Console>
-		<File name="running_log" fileName="logs/running.log" append="false">
+		<!--<File name="running_log" fileName="/usr/logs/running.log" append="false">-->
+			<!--<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{50} - %msg%n"/>-->
+		<!--</File>-->
+		<RollingFile name="_crawl_log" fileName="/usr/logs/_crawl.log"
+			filePattern="/usr/logs/$${date:yyyy-MM}/_crawl-%d{MM-dd-yyyy}=%i.log.gz">
+			<ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
 			<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{50} - %msg%n"/>
-		</File>
-		<RollingFile name="persistence_log" fileName="logs/crawl.log" 
-			filePattern="logs/$${date:yyyy-MM}/dh_blog-%d{MM-dd-yyyy}=%i.log.gz">
+			<SizeBasedTriggeringPolicy size="10MB"/>
+		</RollingFile>
+		<RollingFile name="_parse_log" fileName="/usr/logs/_parse.log"
+					 filePattern="/usr/logs/$${date:yyyy-MM}/_parse-%d{MM-dd-yyyy}=%i.log.gz">
+			<ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
+			<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{50} - %msg%n"/>
+			<SizeBasedTriggeringPolicy size="10MB"/>
+		</RollingFile>
+		<RollingFile name="_proxy_log" fileName="/usr/logs/_proxy.log"
+					 filePattern="/usr/logs/$${date:yyyy-MM}/_proxy-%d{MM-dd-yyyy}=%i.log.gz">
 			<ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
 			<PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level %logger{50} - %msg%n"/>
 			<SizeBasedTriggeringPolicy size="10MB"/>
 		</RollingFile>
 	</appenders>
 	<loggers>
-		<logger name="com.gj.crawler" level="info" additivity="true" >
-			<appender-ref ref="persistence_log"/>
+		<logger name="com.gj.web.crawler.Crawler" level="info" additivity="true" >
+			<appender-ref ref="_crawl_log"/>
+		</logger>
+		<logger name="com.gj.web.crawler.pool.CrawlerThreadPool" level="info" additivity="true">
+			<appender-ref ref="_crawl_log"/>
+		</logger>
+		<logger name="com.gj.web.crawler.parse" level="info" additivity="true">
+			<appender-ref ref="_parse_log"/>
+		</logger>
+		<logger name="com.gj.web.crawler.http.proxy" level="info" additivity="true">
+			<appender-ref ref="_proxy_log"/>
 		</logger>
 		<root level="trace">
 			<appender-ref ref="console"/>

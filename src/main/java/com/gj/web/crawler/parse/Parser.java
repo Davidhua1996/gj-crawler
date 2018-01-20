@@ -46,6 +46,8 @@ import com.gj.web.crawler.store.FileStoreStrategy;
 import com.gj.web.crawler.store.StoreStrategy;
 import com.gj.web.crawler.utils.MapDBContext;
 
+import javax.xml.transform.Result;
+
 public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 	
 	/**
@@ -54,7 +56,7 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 	private static final long serialVersionUID = -8908288905050348183L;
 	
 	private static final Logger logger = LogManager.getLogger(Parser.class);
-	
+
 	private static final String[] JQUERY_LAZY = new String[]{"data-original","data-"};
 		
 	private volatile HTreeMap<String,Object> pmap = null;
@@ -73,9 +75,11 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 	                                                                                                         
 	private final String TEMP = "/usr/tmp"; 
 	@JsonIgnore
-	private transient CrawlerThreadPool crawlPool = CrawlerThreadPoolImpl.getInstance();
+	private transient CrawlerThreadPool crawlPool;
 	
 	private boolean debug = false;
+
+	private boolean isJson = false;
 	/**
 	 * whether use thread pool
 	 */
@@ -169,124 +173,128 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
 		model.putAndAdd("_payload", url.getPayload());//add payload message
-		Map<String,URL> download = new HashMap<String,URL>();//to store the URL from parsing which is needed to download
-		String subDir = "/";//the subDir of medias
-		for(Entry<String,Object> entry : patterns.entrySet()){
-			Pattern pattern = (Pattern) entry.getValue();
-			String key = entry.getKey();
-			String exp = pattern.getExp();
-			String type = pattern.getType() != null?pattern.getType():"text"; // do you forget the type?
-			String attr = pattern.getAttr();
-			String date = pattern.getDate();
-			Elements elements = doc.select(exp);
-			if(pattern.isIdentify() && elements.size() > 0){
-				String value = parseElement(elements.get(0), type, attr);
-				String tmp = value.replaceAll("[\\/:*?\"<>|]", " ").trim();
-				subDir += (subDir.equals("/")?tmp:"_"+tmp);
-				if(StringUtils.isNotBlank(pattern.getDate())){
-					model.putAndAdd(key, new SimpleDateFormat(date).parse(value,new ParsePosition(0)));
-				}else{
-					model.putAndAdd(key, value);
-				}
-			}else{
-				for(int i = 0;i<elements.size();i++){
-					String value = parseElement(elements.get(i),type,attr);
-					if(pattern.isDownload() && type.matches("(photo)|(video)|(html)|(text)")){
-						URL src = new URL(url.getCid(),value);
-						src.setType(type);
-						formatURL(src);
-						download.put(key+"_"+i, src);
-					}else if(StringUtils.isNotBlank(pattern.getDate())){
-						model.putAndAdd(key, new SimpleDateFormat(date).parse(value,new ParsePosition(0)));
-					}else{
+		if(isJson){
+			model.putAndAdd(JSON_KEY, doc.body().text());
+		}else {
+			Map<String, URL> download = new HashMap<String, URL>();//to store the URL from parsing which is needed to download
+			String subDir = "/";//the subDir of medias
+			for (Entry<String, Object> entry : patterns.entrySet()) {
+				Pattern pattern = (Pattern) entry.getValue();
+				String key = entry.getKey();
+				String exp = pattern.getExp();
+				String type = pattern.getType() != null ? pattern.getType() : "text"; // do you forget the type?
+				String attr = pattern.getAttr();
+				String date = pattern.getDate();
+				Elements elements = doc.select(exp);
+				if (pattern.isIdentify() && elements.size() > 0) {
+					String value = parseElement(elements.get(0), type, attr);
+					String tmp = value.replaceAll("[\\/:*?\"<>|]", " ").trim();
+					subDir += (subDir.equals("/") ? tmp : "_" + tmp);
+					if (StringUtils.isNotBlank(pattern.getDate())) {
+						model.putAndAdd(key, new SimpleDateFormat(date).parse(value, new ParsePosition(0)));
+					} else {
 						model.putAndAdd(key, value);
 					}
-				}
-			}
-		}
-		if(! subDir.equals("/") && subDir.length() > 1){
-			File parent = new File(path + subDir + "/");
-			deleteRec(parent);
-			parent.mkdirs();
-		}else{
-			subDir = "";
-		}
-		int index = 0, medias = 0;
-		List<Entry<String,URL>> entrys = 
-				new ArrayList<Entry<String,URL>>(download.entrySet());
-		if(null == crawlPool){
-			throw new RuntimeException("crawl pool can't be null");
-		}
-		for(int i = 0;i < entrys.size(); i++){
-			Entry<String,URL> entry = entrys.get(i);
-			URL src = entry.getValue();
-			String value = src.getUrl();
-			Object loc = null,name = null;
-			String tmpKey = entry.getKey();
-			String key = tmpKey.substring(0,tmpKey.lastIndexOf("_"));
-			if(src.getType().matches("html")){//for type 'html',parse again
-				Document htmlNode = Jsoup.parse(value);
-				Elements imgs = htmlNode.select("img");//search all 'img' elements
-				for(int j = 0;j<imgs.size();j++){
-					Element el = imgs.get(j);
-					String urlStr = el.attr("src");
-					if(StringUtils.isBlank(urlStr)){
-						urlStr = el.attr(JQUERY_LAZY[0]);//JQuery default lazy loading
-						if(StringUtils.isBlank(urlStr)){
-							List<Attribute> attris = el.attributes().asList();
-							for(Attribute attri : attris){
-								if(attri.getKey().startsWith(JQUERY_LAZY[1])){
-									urlStr = attri.getValue();
-									break;
-								}
-							}
-							if(StringUtils.isBlank(urlStr)){
-								continue;
-							}
+				} else {
+					for (int i = 0; i < elements.size(); i++) {
+						String value = parseElement(elements.get(i), type, attr);
+						if (pattern.isDownload() && type.matches("(photo)|(video)|(html)|(text)")) {
+							URL src = new URL(url.getCid(), value);
+							src.setType(type);
+							formatURL(src);
+							download.put(key + "_" + i, src);
+						} else if (StringUtils.isNotBlank(pattern.getDate())) {
+							model.putAndAdd(key, new SimpleDateFormat(date).parse(value, new ParsePosition(0)));
+						} else {
+							model.putAndAdd(key, value);
 						}
 					}
-					URL imgurl = new URL(url.getCid(),DataUtils.formatURL(url,urlStr));
-					imgurl.setType("photo");
-					//generate image's name with original URL and index, index is the location of downloading
-					name = DataUtils.randomHTTPFileName(imgurl.getUrl(), index); 
-					index ++;
-					loc = path + subDir + "/photo/" + name;
-					imgurl.setLocal(String.valueOf(loc));
-					imgurl.setAttached(url);//set attached URL
-					Object tmp = null;
-					if(null != (tmp =  crawlPool.executeIfAbsent(imgurl))){//find local mapping of URL, means that the URL has been crawl 
-						loc = tmp;
-					}else{
-						medias ++;
-					}
-					model.putAndAdd("_img", String.valueOf(loc).substring(rootDir.length()));
-					el.attr("src", DFAULT_DOMAIN_PLACEHOLDER +String.valueOf(loc).substring(rootDir.length()));
 				}
-				src.setUrl(htmlNode.html());
-				src.setType("text");//change to 'text'
-				entry = new AbstractMap.SimpleEntry<String, URL>(tmpKey,src);
-				entrys.add(entry);
-				continue;
-			}else if(src.getType().matches("text")){// for type 'text',save 'value' as 'content' directly
-				name = DataUtils.randomHTTPFileName(null, index);
-				loc = path + subDir + "/content/" + name;
-				localStore(value,String.valueOf(loc));
-			}else{//else put into the pool to crawler
-				if(null == (loc = src.getLocal())){
-					name = DataUtils.randomHTTPFileName(value, index);
-					loc = path + subDir + "/photo/" + name;
-					src.setLocal(String.valueOf(loc));
-					if(null == crawlPool.executeIfAbsent(src)){
-						medias ++;
-					}
-				}
-				crawlPool.execute(src);
 			}
-			model.putAndAdd(key,String.valueOf(loc).substring(rootDir.length()));
-			index ++;
+			if (!subDir.equals("/") && subDir.length() > 1) {
+				File parent = new File(path + subDir + "/");
+				deleteRec(parent);
+				parent.mkdirs();
+			} else {
+				subDir = "";
+			}
+			int index = 0, medias = 0;
+			List<Entry<String, URL>> entrys =
+					new ArrayList<Entry<String, URL>>(download.entrySet());
+			if (null == crawlPool) {
+				throw new RuntimeException("crawl pool can't be null");
+			}
+			for (int i = 0; i < entrys.size(); i++) {
+				Entry<String, URL> entry = entrys.get(i);
+				URL src = entry.getValue();
+				String value = src.getUrl();
+				Object loc = null, name = null;
+				String tmpKey = entry.getKey();
+				String key = tmpKey.substring(0, tmpKey.lastIndexOf("_"));
+				if (src.getType().matches("html")) {//for type 'html',parse again
+					Document htmlNode = Jsoup.parse(value);
+					Elements imgs = htmlNode.select("img");//search all 'img' elements
+					for (int j = 0; j < imgs.size(); j++) {
+						Element el = imgs.get(j);
+						String urlStr = el.attr("src");
+						if (StringUtils.isBlank(urlStr)) {
+							urlStr = el.attr(JQUERY_LAZY[0]);//JQuery default lazy loading
+							if (StringUtils.isBlank(urlStr)) {
+								List<Attribute> attris = el.attributes().asList();
+								for (Attribute attri : attris) {
+									if (attri.getKey().startsWith(JQUERY_LAZY[1])) {
+										urlStr = attri.getValue();
+										break;
+									}
+								}
+								if (StringUtils.isBlank(urlStr)) {
+									continue;
+								}
+							}
+						}
+						URL imgurl = new URL(url.getCid(), DataUtils.formatURL(url, urlStr));
+						imgurl.setType("photo");
+						//generate image's name with original URL and index, index is the location of downloading
+						name = DataUtils.randomHTTPFileName(imgurl.getUrl(), index);
+						index++;
+						loc = path + subDir + "/photo/" + name;
+						imgurl.setLocal(String.valueOf(loc));
+						imgurl.setAttached(url);//set attached URL
+						Object tmp = null;
+						if (null != (tmp = crawlPool.executeIfAbsent(imgurl))) {//find local mapping of URL, means that the URL has been crawl
+							loc = tmp;
+						} else {
+							medias++;
+						}
+						model.putAndAdd("_img", String.valueOf(loc).substring(rootDir.length()));
+						el.attr("src", DFAULT_DOMAIN_PLACEHOLDER + String.valueOf(loc).substring(rootDir.length()));
+					}
+					src.setUrl(htmlNode.html());
+					src.setType("text");//change to 'text'
+					entry = new AbstractMap.SimpleEntry<String, URL>(tmpKey, src);
+					entrys.add(entry);
+					continue;
+				} else if (src.getType().matches("text")) {// for type 'text',save 'value' as 'content' directly
+					name = DataUtils.randomHTTPFileName(null, index);
+					loc = path + subDir + "/content/" + name;
+					localStore(value, String.valueOf(loc));
+				} else {//else put into the pool to crawler
+					if (null == (loc = src.getLocal())) {
+						name = DataUtils.randomHTTPFileName(value, index);
+						loc = path + subDir + "/photo/" + name;
+						src.setLocal(String.valueOf(loc));
+						if (null == crawlPool.executeIfAbsent(src)) {
+							medias++;
+						}
+					}
+					crawlPool.execute(src);
+				}
+				model.putAndAdd(key, String.valueOf(loc).substring(rootDir.length()));
+				index++;
+			}
+			doc.empty();
+			model.putAndAdd("_downloading", medias);
 		}
-		doc.empty();
-		model.putAndAdd("_downloading", medias);
 		//invoke resolve method in callback
 		Object resolvedObj = resolve(model);
 		model.inner.clear();
@@ -319,6 +327,8 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 			value = el.attr(attr!=null?attr:"src");
 		}else if(type.matches("text")){
 			value = attr!=null?el.attr(attr):el.ownText();//not to use method text() for keeping the HTML tag
+		}else if(type.matches("text-all")){
+			value = attr!=null?el.attr(attr):el.text();
 		}else if(type.matches("html")){
 			value = attr!=null?el.attr(attr):el.html();
 		}else{
@@ -495,5 +505,13 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 
 	public void setDebug(boolean debug) {
 		this.debug = debug;
+	}
+
+	public boolean isJson() {
+		return isJson;
+	}
+
+	public void setJson(boolean json) {
+		isJson = json;
 	}
 }

@@ -3,6 +3,7 @@ package com.gj.web.crawler;
 import java.util.List;
 import java.util.Queue;
 
+import com.gj.web.crawler.http.proxy.ProxyConfig;
 import com.gj.web.crawler.parse.Callback;
 import com.gj.web.crawler.parse.ParserApi;
 import com.gj.web.crawler.pool.CrawlerThreadPool;
@@ -11,73 +12,78 @@ import com.gj.web.crawler.store.StoreStrategy;
 
 public interface CrawlerApi {
 	
-	public static final String CRAWLER_MEDIA_SCHEDUAL_NAME ="schedual-media-download-";
+	String CRAWLER_MEDIA_SCHEDUAL_NAME ="schedual-media-download-";
 	
-	public static final int DEFAULT_TIMER_INTERVAL = 5000;
+	int DEFAULT_TIMER_INTERVAL = 5000;
 	
-	public static final int MAX_CONNECT_THREAD = 10;
+	int MAX_CONNECT_THREAD = 10;
 	/**
 	 * the depth of crawling ,default no limit
 	 */
-	public static final int DEFAULT_CRAWL_DEPTH = -1;
+	int DEFAULT_CRAWL_DEPTH = -1;
 	/**
 	 * HTML
 	 * @param url
 	 * @return
 	 */
-	public List<URL> crawlHTML(URL url);
+	List<URL> crawlHTML(URL url);
 	/**
 	 * Medium or picture
 	 * @param url
 	 * @param storePath
 	 */
-	public void crawlMedia(URL url,String storePath);
+	void crawlMedia(URL url,String storePath);
 	/**
 	 * callback method
 	 * @param medias
 	 */
-	public void mediaDownloaded(Queue<URL> medias);
+	void mediaDownloaded(Queue<URL> medias);
 	/**
 	 * return the entrance-URL if it is a crawler for searching,
 	 * else return null in default
 	 * @return
 	 */
-	public String portal();
+	String portal();
 	/**
 	 * return if is lazy loading
 	 * @return
 	 */
-	public boolean isLazy();
+	boolean isLazy();
 	/**
 	 * return the unique identify
 	 * @return
 	 */
-	public Object getId();
+	Object getId();
 	/**
 	 * return if it uses parameters 
 	 * @return
 	 */
-	public boolean isUseParams();
+	boolean isUseParams();
 	/**
 	 * return if it use a simulate browser
 	 * @return
 	 */
-	public boolean isSimulate();
+	boolean isSimulate();
 	/**
 	 * return Parser
 	 * @return
 	 */
-	public ParserApi getParser();
+	ParserApi getParser();
 	/**
 	 * open the crawler
 	 */
-	public void open();
+	void open();
 	
-	public Callback getCallback();
+	Callback getCallback();
 	/**
 	 * crawl deepth
 	 * @return
 	 */
-	public Integer getMaxDepth();
-	
+	Integer getMaxDepth();
+
+	/**
+	 * get proxy configuration
+	 * @return
+	 */
+	ProxyConfig getProxyConfig();
 }

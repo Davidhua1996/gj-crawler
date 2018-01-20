@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+import com.gj.web.crawler.http.proxy.ProxyConfig;
+import com.gj.web.crawler.http.proxy.ProxyContainer;
+import com.gj.web.crawler.http.proxy.ProxyUtils;
 import com.gj.web.crawler.http.utils.DataUtils;
 
 public class DefaultResponse implements Response {
@@ -26,12 +29,16 @@ public class DefaultResponse implements Response {
 	private HttpURLConnection con = null;
 	private Map<String,List<String>> headers = null;
 	private Map<String,String> cookies = new HashMap<String,String>();
+	private ProxyContainer.ProxyEntity proxy;
+	private ProxyConfig proxyConfig;
 	/**
 	 * record the time of attempting to read from input stream 
 	 */
 	private int attemptTime = 0;
-	protected DefaultResponse(HttpURLConnection con){
+	protected DefaultResponse(HttpURLConnection con, ProxyContainer.ProxyEntity proxy, ProxyConfig proxyConfig){
 		this.con = con;
+		this.proxy = proxy;
+		this.proxyConfig = proxyConfig;
 		resolveHeaders(con);
 	}
 	protected void setBody(ByteBuffer body){
@@ -39,7 +46,9 @@ public class DefaultResponse implements Response {
 	}
 	public String body() {
 		if(null == body || body.capacity() <= 0){
+			int code = -1;
 			try {
+				code = con.getResponseCode();
 				InputStream in = con.getInputStream();
 				if(null != con.getHeaderField("Content-Encoding") 
 						&& con.getHeaderField("Content-Encoding").equals("gzip")){
@@ -51,7 +60,12 @@ public class DefaultResponse implements Response {
 					//TODO make some logs
 					return null;
 				}
-				throw new RuntimeException("error happend when create input stream in connection",e);
+				if(e instanceof SocketTimeoutException){
+					ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), -1);
+				}else {
+					ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), code);
+				}
+				throw new RuntimeException("error happened when create input stream in connection",e);
 			}
 		}
 		String result = Charset.forName(charset).decode(body).toString();
@@ -95,10 +109,13 @@ public class DefaultResponse implements Response {
 		} catch(IOException ie){
 			if(ie.getCause() instanceof SocketTimeoutException && attemptTime < MAX_ATTEMPT_TIME){
 				return streamToByte(in);
-			}else if(ie.getCause() instanceof SocketTimeoutException){
-				throw new RuntimeException("Read time out and have been tried "+attemptTime+" times",ie);
 			}else{
-				throw new RuntimeException(ie);
+				ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), -1);
+				if(ie.getCause() instanceof SocketTimeoutException){
+					throw new RuntimeException("Read time out and have been tried "+attemptTime+" times",ie);
+				}else{
+					throw new RuntimeException(ie);
+				}
 			}
 		}
 	}

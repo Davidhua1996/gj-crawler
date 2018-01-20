@@ -9,11 +9,15 @@ import java.util.Map;
  *
  * @param <T>
  */
-public class IMQueue<T extends URL> implements Queue<T>{
+public class IMQueue<T extends URL> extends AbstractedQueue<T>{
 	private volatile long size = 0;
 	private Node<T> head = new Node<T>();
 	private Node<T> tail = new Node<T>();
 	private Map<String,Object> record = new HashMap<String,Object>();
+	private Map<String,String> locals = new HashMap<String, String>();
+	public IMQueue(){
+
+	}
 	@SuppressWarnings("hiding")
 	private class Node<T>{
 		T data;
@@ -45,6 +49,7 @@ public class IMQueue<T extends URL> implements Queue<T>{
 		return result;
 	}
 
+
 	public void push(T t) {
 		Node<T> node = new Node<T>(t,null);
 		Node<T> next = tail.next;
@@ -59,9 +64,18 @@ public class IMQueue<T extends URL> implements Queue<T>{
 	}
 
 	public void pushWithKey(T t, String key) {
-		if(!record.containsKey(key)){
+		if(dereplicate){
 //			System.out.println(key);
-			record.put(key, ((URL)t).getLocal());
+			Long expire = (Long)record.get(key);
+			if(null == expire || (expire > 0 && expire < System.currentTimeMillis())) {
+				record.put(key, derepExpire <= 0 ? derepExpire : System.currentTimeMillis() + derepExpire);
+				String local = t.getLocal();
+				if (null != local) {
+					locals.put(key, local);
+				}
+				push(t);
+			}
+		}else if(!dereplicate){
 			push(t);
 		}
 	}
@@ -81,6 +95,6 @@ public class IMQueue<T extends URL> implements Queue<T>{
 	}
 
 	public Object local(String key) {
-		return record.get(key);
+		return locals.get(key);
 	}
 }

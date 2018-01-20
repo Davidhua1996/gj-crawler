@@ -7,10 +7,13 @@ import java.util.Map.Entry;
 public class ConnectionHandler {
 	private static final String DEFAULT_CONNECTION = "keep-alive";
 	private static final String DEFAULT_ACCEPT_ENCODING = "gzip,deflate,sdch";
-	private static final String DEFAULT_USERAGENT = "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36";
-	private static final String DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+	private static final String DEFAULT_USERAGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36";
+	private static final String DEFAULT_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,image/apng,*/*;q=0.8";
 	private static final String CONTENT_TYPE = "application/x-www-form-urlencoded;charset=UTF-8";
-	private static final String DEFAULT_ACCEPT_LANGUAGE = "zh-CN,zh;q=0.8";
+	private static final String DEFAULT_ACCEPT_LANGUAGE = "zh-CN,zh;q=0.9";
+	static{
+		System.setProperty("sun.net.http.allowRestrictedHeaders", "true");
+	}
 	private ConnectionHandler(){
 		
 	}
@@ -20,10 +23,10 @@ public class ConnectionHandler {
 	 * @return
 	 */
 	public static HttpURLConnection wrapper(HttpURLConnection conn){
+		conn.setRequestProperty("Connection", DEFAULT_CONNECTION);
 		conn.setRequestProperty("User-Agent",DEFAULT_USERAGENT);
 		conn.setRequestProperty("Accept",DEFAULT_ACCEPT);
 		conn.setRequestProperty("Accept-Encoding", DEFAULT_ACCEPT_ENCODING);
-		conn.setRequestProperty("Connection", DEFAULT_CONNECTION);
 		conn.setRequestProperty("Content-Type",CONTENT_TYPE);
 		conn.setRequestProperty("Accept-Language", DEFAULT_ACCEPT_LANGUAGE);
 		return conn;
@@ -54,7 +57,7 @@ public class ConnectionHandler {
 	/**
 	 * add cookie
 	 * @param conn
-	 * @param hostName
+	 * @param cookieValue
 	 * @return
 	 */
 	public static HttpURLConnection cookie(HttpURLConnection conn,String cookieValue){

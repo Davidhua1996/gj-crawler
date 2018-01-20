@@ -8,51 +8,53 @@ import com.gj.web.crawler.store.StoreStrategy;
 
 public interface ParserApi {
 	
-	public static final String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
+	String DFAULT_DOMAIN_PLACEHOLDER = "{domain}";
 	
-	public static final String PARSER_PERSIST_SCHEDUAL_NAME = "schedual-persist-";
+	String PARSER_PERSIST_SCHEDUAL_NAME = "schedual-persist-";
 	
-	public static final int DEFAULT_TIMER_INTERVAL = 3000;
+	int DEFAULT_TIMER_INTERVAL = 3000;
 	
-	public static final String PARSER_NAME = "parse";
+	String PARSER_NAME = "parse";
 	
-	public static final Integer COMMIT_PER_COUNT = 200;
+	Integer COMMIT_PER_COUNT = 200;
 	
-	public static final String DB_NAME_PRFIX = "map_db_";
+	String DB_NAME_PRFIX = "map_db_";
+
+	String JSON_KEY = "JSON";
 	/**
 	 * parse HTML
 	 * @param html
 	 */
-	public void parse(String html,URL url);
+	 void parse(String html,URL url);
 	/**
 	 * as you can see,use Jsoup.parse(String) before
 	 * @param doc
 	 */
-	public void parse(Document doc,URL url);
+	 void parse(Document doc,URL url);
 	/**
 	 * resolve method(resolve the result from parsing)
 	 * it will be invoked once parsing program ends
 	 * @param result
 	 */
-	public Object resolve(ResultModel result);
+	 Object resolve(ResultModel result);
 	/**
 	 * persist the collection in-memory
-	 * @param store
 	 */
-	public void persist();
+	 void persist();
 	/**
 	 * like persist method,but commit link-message also
 	 */
-	public void pcommit();
+	 void pcommit();
 	
-	public Callback getCallback();
+	 Callback getCallback();
 	
-	public String getRootDir();
+	 String getRootDir();
 	
-	public String getChildDir();
+	 String getChildDir();
 	
-	public boolean isParsed(URL url);
+	 boolean isParsed(URL url);
 	
-	public boolean isDebug();
-	
+	 boolean isDebug();
+
+	void setCrawlPool(CrawlerThreadPool pool);
 }

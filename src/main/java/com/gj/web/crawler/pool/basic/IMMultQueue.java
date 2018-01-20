@@ -10,7 +10,7 @@ import com.gj.web.crawler.pool.basic.QueueWeightPoll.Segment;
  * @author David
  *
  */
-public class IMMultQueue<T extends URL> implements Queue<T>{
+public class IMMultQueue<T extends URL> extends AbstractedQueue<T>{
 	private QueueWeightPoll<T> weightPoll = QueueWeightPoll.getInstance();
 	/**
 	 * each segment contains a subQueue
@@ -18,6 +18,9 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 	private Segment<T>[] segments = null;
 	private ConcurrentHashMap<String, Integer> locations = new ConcurrentHashMap<String, Integer>();
 	private ReentrantReadWriteLock segmentlock = new ReentrantReadWriteLock();
+	public IMMultQueue(){
+
+	}
 	public void init() {
 		if(null != segments){
 			for(int i = 0 ; i <segments.length ; i++){
@@ -46,7 +49,7 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 		URL url = (URL)t;
 		Segment<T> segment = getSegment(url.getCid()+"-"+url.getType());
 		if(null == segment){
-			segment = segment(url.getCid() + "-" + url.getType(), 1, new IMQueue<T>());
+			segment = segment(url.getCid() + "-" + url.getType(), 1, queue());
 		}
 		segment.getQueue().push(t);//maybe sub queue can solve the concurrent problem?
 	}
@@ -65,6 +68,10 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 		Segment<T> segment = null;
 		segmentlock.writeLock().lock();
 		try{
+			Integer index = locations.get(type);
+			if(index != null){
+				return segments[index];
+			}
 			segment = new Segment<T>(type, weight, queue);
 			segment(segment);
 		}finally{
@@ -78,19 +85,20 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 			segments = new Segment[1];
 			segments[0] = segment;
 			locations.put(segment.getType(), 0);
+		}else {
+			Segment<T>[] segs = new Segment[segments.length + 1];
+			System.arraycopy(segments, 0, segs, 0, segments.length);
+			segs[segments.length] = segment;
+			locations.put(segment.getType(), segments.length);
+			segments = segs;
 		}
-		Segment<T>[] segs = new Segment[segments.length + 1];
-		System.arraycopy(segments, 0, segs, 0, segments.length);
-		segs[segments.length] = segment;
-		locations.put(segment.getType(), segments.length);
 		System.out.println("segment:"+segment.getType());
-		segments = segs;
 	}
 	public void pushWithKey(T t, String key) {
 		URL url = (URL)t;
 		Segment<T> segment = getSegment(url.getCid()+"-"+url.getType());
 		if(null == segment){
-			segment = segment(url.getCid() + "-" +url.getType(), 1, new IMQueue<T>());
+			segment = segment(url.getCid() + "-" +url.getType(), 1, queue());
 		}
 		segment.getQueue().pushWithKey(t, key);
 	}
@@ -116,9 +124,19 @@ public class IMMultQueue<T extends URL> implements Queue<T>{
 			}
 		}
 	}
+
+	private IMQueue<T> queue(){
+		IMQueue<T> queue = new IMQueue<T>();
+		queue.setDerepExpire(derepExpire);
+		queue.setDerepExpire(derepExpire);
+		return queue;
+	}
 	private Segment<T> select(){
 		Segment<T> segment = null;
 		if(null != segments){
+//			for(int i = 0; i < segments.length; i ++){
+//				System.out.println("index:"+i+", type:"+segments[i].getType()+", size:"+segments[i].getQueue().size());
+//			}
 			int index = weightPoll.pollSel(segments);
 			segments[index].setCwt(segments[index].getCwt() - 1);
 			segment = segments[index];

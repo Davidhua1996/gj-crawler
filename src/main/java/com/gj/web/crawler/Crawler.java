@@ -9,9 +9,13 @@ import java.util.Queue;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.gj.web.crawler.http.proxy.ProxyConfig;
+import com.gj.web.crawler.http.proxy.ProxyContainer;
+import com.gj.web.crawler.http.proxy.ProxyUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool.impl.SoftReferenceObjectPool;
 import org.apache.logging.log4j.LogManager;
@@ -62,6 +66,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 * simulate browser
 	 */
 	protected boolean simulate = false;
+
+	protected boolean useProxy = false;
+
 	/**
 	 * timer task for crawler
 	 */
@@ -112,11 +119,11 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 */
 	protected String portal = null;
 	
-	private volatile Integer num = 0;
+	private volatile AtomicInteger num;
 	
-	private transient ReentrantLock crawlLock = new ReentrantLock();
+	private transient ReentrantLock crawlLock;
 	
-	private transient Condition notLimit = crawlLock.newCondition();
+	private transient Condition notLimit;
 	
 	protected boolean lazy = true;
 	
@@ -132,15 +139,31 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			
 	private transient SoftReferenceObjectPool<WebClient> softPool = 
 			new SoftReferenceObjectPool<WebClient>(new WebClientPooledFactory());
+
+	private ProxyConfig proxyConfig = new ProxyConfig();
+	/**
+	 * you can offer a shared lock and atomic Integer obj
+	 * @param shareLock
+	 * @param num
+	 */
+	public Crawler(ReentrantLock shareLock, AtomicInteger num){
+		if(null == shareLock || null == num){
+			throw new IllegalArgumentException();
+		}
+		this.num = num;
+		this.crawlLock = shareLock;
+		this.notLimit = this.crawlLock.newCondition();
+		this.num = num;
+	}
+	public Crawler(){
+		this(new ReentrantLock(), new AtomicInteger());
+	}
 	/**
 	 * crawl HTML page
 	 * return the URLs crawled
 	 */
 	public List<URL> crawlHTML(URL url){
 		List<URL> urls = new ArrayList<URL>();
-		if(logger.isInfoEnabled()){
-			logger.info("start to crawl HTML, url=" +url.getUrl());
-		}
 		if(maxDepth > 0 && url.getDepth() > maxDepth){
 			return urls;//too deep
 		}
@@ -149,6 +172,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 			return urls;
 		}
 		begin();
+		if(logger.isInfoEnabled()){
+			logger.info("start to crawl HTML, url=" +url.getUrl());
+		}
 		Document store = null;
 		try{
 			String body = null;
@@ -235,11 +261,14 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 * connect and do Response
 	 */
 	private Response connectAndResponse(URL url){
-		HttpExecutor executor = HttpExecutor.newInstance(url.getUrl());
+		ProxyContainer.ProxyEntity proxy = useProxy?ProxyUtils.nextProxyEntity():null;
+		HttpExecutor executor = HttpExecutor.newInstance(url.getUrl(),
+				proxy, proxyConfig);
 		executor.wrapperConn().cookies(cookies).execute();// do like a browser
 		Response response = executor.response();
 		response.body();
 		executor.disconnect();//don't forget that
+		ProxyUtils.record(proxy, proxyConfig, url.getUrl(), executor.code());
 		return response;
 	}
 	private String simulateAndResponse(URL url){
@@ -298,10 +327,10 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	private void begin() {
 		crawlLock.lock();
 		try{
-			while(num >= connNum){
+			while(num.get() >= connNum){
 				notLimit.await();
 			}
-			num++;
+			num.incrementAndGet();
 		}catch(InterruptedException e){
 			throw new RuntimeException(e);
 		}finally{
@@ -311,7 +340,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	private void end() {
 		crawlLock.lock();
 		try{
-			num--;
+			num.decrementAndGet();
 			notLimit.signal();
 		}finally{
 			crawlLock.unlock();
@@ -433,11 +462,24 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	public Integer getMaxDepth() {
 		return maxDepth;
 	}
+
+	@Override
+	public ProxyConfig getProxyConfig() {
+		return proxyConfig;
+	}
+
 	public void setMaxDepth(Integer maxDepth) {
 		this.maxDepth = maxDepth;
 	}
 	public void setStoreStrategy(StoreStrategy strategy) {
 		this.strategy = strategy;
 	}
-	
+
+	public boolean isUseProxy() {
+		return useProxy;
+	}
+
+	public void setUseProxy(boolean useProxy) {
+		this.useProxy = useProxy;
+	}
 }

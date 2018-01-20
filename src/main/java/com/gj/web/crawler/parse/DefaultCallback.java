@@ -24,7 +24,11 @@ public class DefaultCallback implements Callback,Serializable{
 		for(Entry<String,Object[]> entry : inner.entrySet()){
 			String key = entry.getKey();
 			Object[] value = entry.getValue();
-			System.out.println(key +": "+value[0]);
+			System.out.print(key +": ");
+			for(int i =0 ; i < value.length; i++){
+				System.out.print(value[i] + " ");
+			}
+			System.out.println();
 		}
 		System.out.println("-----------------------------");
 		return result;
