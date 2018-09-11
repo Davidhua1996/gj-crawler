@@ -10,15 +10,15 @@ public interface ThreadPool {
 	/**
 	 * create work threads
 	 */
-	public void open();
+	 void open();
 	/**
 	 * if the pool has been open
 	 * @return
 	 */
-	public boolean isOpen();
+	 boolean isOpen();
 	/**
 	 * close the pool,the method will not return until 
 	 * all the work threads have been destroyed
 	 */
-	public void shutdown();
+	 void shutdown();
 }

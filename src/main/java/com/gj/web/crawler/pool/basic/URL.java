@@ -1,5 +1,9 @@
 package com.gj.web.crawler.pool.basic;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 public class URL {
 	//the depth of URL 
 	protected int depth = 0;
@@ -20,6 +24,10 @@ public class URL {
 	protected volatile int retry = 0;
 	//attached URL, usually the parent URL
 	protected URL attached;
+	protected Date enqueueTime;
+	protected Map<String, String> headers = new HashMap<String, String>();
+	protected String cookie;
+	protected String proxy;
 	public URL(String cid, String url){
 		this.cid = cid;
 		this.url = url;
@@ -34,7 +42,12 @@ public class URL {
 		this.url = url;
 		this.payload = payload;
 	}
-	
+	void setEnqueueTime(Date date){
+		this.enqueueTime = date;
+	}
+	public Date getEnqueueTime(){
+		return this.enqueueTime;
+	}
 	public int getDepth() {
 		return depth;
 	}
@@ -62,6 +75,27 @@ public class URL {
 	public long getOrder() {
 		return order;
 	}
+
+	public Map<String, String> getHeaders() {
+		return headers;
+	}
+
+	public void addHeader(String key, String value) {
+		headers.put(key, value);
+	}
+
+	public String getHeader(String key){
+		return headers.get(key);
+	}
+
+	public String getCookie() {
+		return cookie;
+	}
+
+	public void setCookie(String cookie) {
+		this.cookie = cookie;
+	}
+
 	public void setOrder(long order) {
 		this.order = order;
 	}
@@ -95,5 +129,12 @@ public class URL {
 	public void setAttached(URL attached) {
 		this.attached = attached;
 	}
-	
+
+	public String getProxy() {
+		return proxy;
+	}
+
+	public void setProxy(String proxy) {
+		this.proxy = proxy;
+	}
 }

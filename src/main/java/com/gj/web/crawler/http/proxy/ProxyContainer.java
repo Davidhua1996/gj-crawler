@@ -7,7 +7,9 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -17,7 +19,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ProxyContainer {
     public static final int MAX_RECONNECT_COUNT = 0;
-    private final List<ProxyEntity> proxyList = new ArrayList<ProxyEntity>();
+    private final List<ProxyEntity> proxyList = new ArrayList<>();
+    private final Queue<ProxyEntity> candidacies = new LinkedList<>();
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
     private static final Logger logger = LogManager.getLogger(ProxyContainer.class);
@@ -35,7 +38,15 @@ public class ProxyContainer {
         lock();
         try {
             ProxyEntity entity = proxyList.remove(i);
-            logger.info("remove proxy:"+entity.address+" rest:" + capacity());
+            logger.trace("remove proxy:"+entity.address+" rest:" + capacity() + " candidate:" + candidacies.size());
+            if(!candidacies.isEmpty()){
+                entity = candidacies.poll();
+                if(!proxyList.contains(entity)) {
+                    proxyList.add(entity);
+                    logger.trace("extract candidate proxy:" + entity.address + " rest:" + capacity());
+                    notEmpty();
+                }
+            }
         }finally{
             release();
         }
@@ -102,12 +113,17 @@ public class ProxyContainer {
         lock();
         this.lock.lock();
         try {
-            if(maxCapacity > 0 && proxyList.size() + 1 > maxCapacity){
-                return;
-            }
             if(!proxyList.contains(entity)) {
+                if(maxCapacity > 0 && proxyList.size() + 1 > maxCapacity){
+                    //default, the number of candidacy  equals to maxCapacity * 5
+                    if(candidacies.size()  < 5 * maxCapacity && !candidacies.contains(entity)){
+                        logger.trace("add proxy:" + entity.address + " to candidacies");
+                        candidacies.add(entity);
+                    }
+                    return;
+                }
                 proxyList.add(entity);
-                logger.info("add proxy:"+entity.address+" rest:" +capacity());
+                logger.trace("add proxy:"+entity.address+" rest:" +capacity());
                 notEmpty();
             }
         }finally{
@@ -126,21 +142,28 @@ public class ProxyContainer {
         double rate;
         boolean disable = false;
         int reconnect = 0;
+        ProxyConfig config;
         long active = -1;//time to active
         String badURL;//to record forbidden url
+        String badContent;
+        String badCode = "0";
         final AtomicInteger _2xx = new AtomicInteger();
         final AtomicInteger _3xx = new AtomicInteger();
         final AtomicInteger _4xx = new AtomicInteger();
         final AtomicInteger _5xx = new AtomicInteger();
         final AtomicInteger _xx = new AtomicInteger();
 
-        ProxyEntity(String hostname, int port, int weight){
+        public ProxyEntity(String hostname, int port, int weight){
             this.address = hostname + ":" + port;
             this.hostname =hostname;
             this.port = port;
             this.proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
             this.weight = weight;
             this.cweight = weight;
+        }
+        ProxyEntity(String address, int weight){
+            this.address = address;
+            this.weight = weight;
         }
         void clear(){
             _2xx.set(0);
@@ -166,6 +189,9 @@ public class ProxyContainer {
         }
         public String getAddress(){
             return this.address;
+        }
+        public String getBadURL(){
+            return badURL;
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.gj.web.crawler.pool.basic;
 
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,6 +61,7 @@ public class IMQueue<T extends URL> extends AbstractedQueue<T>{
 			next.next = node;
 			tail.next = node;
 		}
+		t.enqueueTime = Calendar.getInstance().getTime();
 		size++;
 	}
 

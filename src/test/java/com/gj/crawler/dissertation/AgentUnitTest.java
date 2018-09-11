@@ -1,9 +1,7 @@
 package com.gj.crawler.dissertation;
 
 import com.gj.web.crawler.Crawler;
-import com.gj.web.crawler.http.proxy.ProxyContainer;
 import com.gj.web.crawler.http.proxy.ProxyUtils;
-import com.sun.deploy.net.proxy.ProxyType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

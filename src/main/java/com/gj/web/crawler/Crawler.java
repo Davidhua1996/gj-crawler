@@ -2,6 +2,7 @@ package com.gj.web.crawler;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.gj.web.crawler.http.proxy.ProxyConfig;
 import com.gj.web.crawler.http.proxy.ProxyContainer;
 import com.gj.web.crawler.http.proxy.ProxyUtils;
+import com.gj.web.crawler.parse.json.JsonUtils;
+import com.gj.web.crawler.pool.exc.ProxyForbiddenException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool.impl.SoftReferenceObjectPool;
 import org.apache.logging.log4j.LogManager;
@@ -201,7 +204,9 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					for(int i = 0;i < elements.size();i++){
 						String urlStr = elements.get(i).attr("href");
 						urlStr = DataUtils.formatURL(url, urlStr);
-						urls.add(new URL(null,urlStr, url.getDepth() + 1));
+						URL newUrl = new URL(null, urlStr, url.getDepth() + 1);
+						newUrl.addHeader("Referer", url.getUrl());
+						urls.add(newUrl);
 					}
 				}
 				if(null != store && null != parser){
@@ -209,7 +214,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 				}
 			}
 		}catch(Exception e){
-			throw new RuntimeException(e);
+			throw e;
 		}finally{
 			end();
 		}
@@ -229,7 +234,7 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 					logger.info("start to crawl Media, url=" +url.getUrl()+", local=" + url.getLocal());
 				}
 				executor = HttpExecutor.newInstance(url.getUrl());
-				executor.wrapperConn().cookies(cookies).execute();
+				executor.wrapperConn(url.getHeaders()).cookies(cookies).execute();
 				Response response = executor.response();
 				File directory = new File(storePath.substring(0, storePath.lastIndexOf("/")));
 				directory.mkdirs();
@@ -261,15 +266,58 @@ public class Crawler extends BasicLifecycle implements CrawlerApi,Serializable{
 	 * connect and do Response
 	 */
 	private Response connectAndResponse(URL url){
-		ProxyContainer.ProxyEntity proxy = useProxy?ProxyUtils.nextProxyEntity():null;
-		HttpExecutor executor = HttpExecutor.newInstance(url.getUrl(),
-				proxy, proxyConfig);
-		executor.wrapperConn().cookies(cookies).execute();// do like a browser
-		Response response = executor.response();
-		response.body();
-		executor.disconnect();//don't forget that
-		ProxyUtils.record(proxy, proxyConfig, url.getUrl(), executor.code());
-		return response;
+        ProxyContainer.ProxyEntity proxy = null;
+        boolean hasProxy = false;
+	    if(useProxy){
+	        String address = url.getProxy();
+	        if(!StringUtils.isEmpty(address)){
+	        	hasProxy = true;//have the permanent proxy
+	            String[] array = address.split(":");
+	            proxy = new ProxyContainer.ProxyEntity(array[0],
+                        Integer.valueOf(array[1]), 0);
+            }else{
+                proxy = ProxyUtils.nextProxyEntity();
+                url.setProxy(proxy.getAddress());
+            }
+        }
+		HttpExecutor executor = null;
+	    int code = -1;
+	    String result = "";
+		try {
+			if(null != proxy){
+				logger.info("USE PROXY: " + proxy.getAddress());
+			}
+			executor = HttpExecutor.newInstance(url.getUrl(),
+					proxy);
+			executor.wrapperConn(url.getHeaders()).cookies(cookies).execute();// do like a browser
+            code = executor.code();
+			Response response = executor.response();
+			result = response.body();
+            if(null != proxyConfig && proxyConfig.isForbiddenContent(result)){
+                code = 403;
+                throw new ProxyForbiddenException("discover forbidden content:"+result.substring(0, 15)+"...");
+            }
+            if(null != proxyConfig && proxyConfig.isForbiddenCode(String.valueOf(code))){
+				throw new ProxyForbiddenException("discover forbidden code:" + code);
+			}
+			result = null;
+			return response;
+		}catch(Exception e){
+			if(!hasProxy){
+				url.setProxy(null);//clear the dynamic proxy
+			}
+			if(!(e instanceof ProxyForbiddenException)
+                    && null != proxyConfig && proxyConfig.isForbiddenCode(String.valueOf(code))){
+//				url.setProxy(null);//the proxy is not available
+                throw new ProxyForbiddenException("discover forbidden code:" + code);
+            }
+			throw e;
+		}finally{
+            ProxyUtils.record(proxy, proxyConfig, url.getUrl(), code, result);
+			if(null != executor){
+			    executor.disconnect();//don't forget that
+            }
+		}
 	}
 	private String simulateAndResponse(URL url){
 		WebClient client = null;

@@ -30,6 +30,7 @@ public class JsonUtils {
 		mapper.configure(Feature.ALLOW_COMMENTS, true);
 		mapper.configure(Feature.ALLOW_UNQUOTED_FIELD_NAMES,true);
 		mapper.configure(Feature.ALLOW_SINGLE_QUOTES, true);
+//		mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
 		mapper.configure(DeserializationFeature.READ_ENUMS_USING_TO_STRING,true);
 		mapper.configure(SerializationFeature.WRITE_ENUMS_USING_TO_STRING,true);
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

@@ -17,49 +17,52 @@ import com.gj.web.crawler.pool.exc.ExcReportStore;
 public interface CrawlerThreadPool extends ThreadPool{
 	/**
 	 * execute the crawler in pool whose ID is 
-	 * @param task
-	 */
-	public void execute(String cid);
-	public void execute(String cid, byte[] payload);
-	/**
-	 * execute with params
 	 * @param cid
-	 * @param obj
 	 */
-	public void execute(String cid, Object[] params);
+	void execute(String cid);
+	void execute(String cid, byte[] payload);
 	/**
 	 * execute with params
 	 * @param cid
 	 * @param params
 	 */
-	public void execute(String cid,Map<String,Object> params);
+	void execute(String cid, Object[] params);
+	/**
+	 * execute with params
+	 * @param cid
+	 * @param params
+	 */
+	void execute(String cid,Map<String,Object> params);
 	/**
 	 * execute with params and payload
 	 * @param cid
 	 * @param params
 	 * @param payload
 	 */
-	public void execute(String cid, byte[] payload, Object[] params);
+	void execute(String cid, byte[] payload, Object[] params);
 	
-	public void execute(String cid, byte[] payload, Map<String,Object> params);
+	void execute(String cid, byte[] payload, Map<String,Object> params);
+
+	void executeWithKeyNot(URL url);
 	/**
 	 * execute the url
-	 * @param task
+	 * @param url
 	 */
-	public void execute(URL url);
+	void execute(URL url);
 	/**
-	 * get crawlers from pool
+	 * add crawlers from pool
 	 * @return
 	 */
-	public Map<String, CrawlerApi> getCrawlers();
+//	public Map<String, CrawlerApi> getCrawlers();
+	void addCrawler(CrawlerApi crawlerApi);
+
+	Integer getPoolSize();
 	
-	public Integer getPoolSize();
+	Integer getMaxFree();
 	
-	public Integer getMaxFree();
+	boolean isUseMapDB();
 	
-	public boolean isUseMapDB();
-	
-	public List<Monitor> getMonitors();
+	void addMonitor(Monitor monitor);
 	
 	/**
 	 * execute URL, if URL has been crawled
@@ -67,14 +70,14 @@ public interface CrawlerThreadPool extends ThreadPool{
 	 * @param url
 	 * @return the local mapping of URL
 	 */
-	public Object executeIfAbsent(URL url);
+	Object executeIfAbsent(URL url);
 	
-	public int getMaxRetry(); 
+	int getMaxRetry();
 	
-	public long getWorkQueueLen();
+	long getWorkQueueLen();
 	
-	public ExcReportStore getExcReportStore();
+	ExcReportStore getExcReportStore();
 	
-	public long getActiveInterval();
+	long getActiveInterval();
 	
 }

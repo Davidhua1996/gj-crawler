@@ -3,6 +3,7 @@ package com.gj.web.crawler.http;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 
 import com.gj.web.crawler.http.proxy.ProxyConfig;
 import com.gj.web.crawler.http.proxy.ProxyContainer;
@@ -32,6 +33,12 @@ public abstract class HttpExecutor
 	 */
 	public abstract HttpExecutor execute();
 
+	/**
+	 * append data
+	 * @param data
+	 */
+
+	public abstract HttpExecutor data(Map<String, String> data);
 	public abstract int code();
 	/**
 	 * 
@@ -44,6 +51,8 @@ public abstract class HttpExecutor
 	 * wrap up the connection and make it like a browser
 	 */
 	public abstract HttpExecutor wrapperConn();
+
+	public abstract HttpExecutor wrapperConn(Map<String, String> headers);
 	/**
 	 * add cookies to request
 	 * @param cookies
@@ -61,8 +70,8 @@ public abstract class HttpExecutor
     public static DefaultHttpExecutor newInstance(String address, ProxyContainer.ProxyEntity proxy){
     	return new DefaultHttpExecutor(address, proxy);
 	}
-	public static DefaultHttpExecutor newInstance(String address, ProxyContainer.ProxyEntity proxy, ProxyConfig proxyConfig){
-		return new DefaultHttpExecutor(address, proxy, proxyConfig);
+	public static DefaultHttpExecutor newInstance(String address, String method, ProxyContainer.ProxyEntity proxy){
+    	return new DefaultHttpExecutor(address, method, proxy);
 	}
     public static void main(String[] args) throws Exception{
     	long current = System.currentTimeMillis();

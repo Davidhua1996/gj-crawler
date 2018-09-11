@@ -7,7 +7,7 @@ package com.gj.web.crawler.delay;
 public interface DelayConsumer {
 	/**
 	 * consume method
-	 * @param delay
+	 * @param delayTask
 	 */
 	public void consume(CrawlerDelayTask delayTask);
 }

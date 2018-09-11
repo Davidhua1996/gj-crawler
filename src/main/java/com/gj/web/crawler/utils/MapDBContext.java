@@ -9,7 +9,11 @@ import org.mapdb.DBMaker;
 import com.gj.web.crawler.pool.basic.DBType;
 
 public class MapDBContext {
-	private static final String DB_ROOT_DIR = "/usr/mapDB/";
+	private static final String DB_ROOT_DIR;
+	static{
+		 String baseDir = System.getProperty("base.dir", "/crawl");
+		 DB_ROOT_DIR = baseDir + "/mapDB" + System.getProperty("namespace", "") + "/";
+	}
 	public static DB getDB(String dbname,DBType type){
 		DB db = null;
 		if(type == DBType.TEMP){

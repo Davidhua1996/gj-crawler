@@ -16,6 +16,8 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.gj.web.crawler.pool.basic.*;
+import com.gj.web.crawler.pool.exc.ProxyForbiddenException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import com.gj.web.crawler.CrawlerApi;
@@ -41,7 +43,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	
 	private static final int MAX_FREE_TIME = 1000*30;
 	
-	private static final int DEFAULT_RETRY_COUNT = 6;
+	private static final int DEFAULT_RETRY_COUNT = 10;
 	
 	private static final long DEFAULT_ACTIVE_INTERVAL = 60*5;
 	
@@ -76,7 +78,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 
 	private int derepExpire = -1;
 
-	private AbstractedQueue<URL> queue = new IMMultQueue<URL>();
+	private AbstractedQueue<URL> queue = new IMMultQueue<>();
 
 	private int maxRetry = DEFAULT_RETRY_COUNT;
 	
@@ -86,11 +88,11 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	/**
 	 * store crawlers
 	 */
-	private Map<String, CrawlerApi> crawlers = new ConcurrentHashMap<String, CrawlerApi>();
+	private Map<String, CrawlerApi> crawlers = new ConcurrentHashMap<>();
 	/**
 	 * store status
 	 */
-	private Map<String, CrawlerStatus> statuses = new ConcurrentHashMap<String, CrawlerStatus>();
+	private Map<String, CrawlerStatus> statuses = new ConcurrentHashMap<>();
 	/**
 	 * lock
 	 */
@@ -108,7 +110,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	/**
 	 * monitors
 	 */
-	private List<Monitor> monitors = new ArrayList<Monitor>();
+	private List<Monitor> monitors = new ArrayList<>();
 	
 	protected CrawlerThreadPoolImpl(){
 		this(true, MAX_POOL_SIZE);
@@ -126,8 +128,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	 * @return
 	 */
 	public static CrawlerThreadPool newInstance(String id, boolean useMapDB, int poolSize){
+		return newInstance(id, useMapDB, poolSize, -1);
+	}
+	public static CrawlerThreadPool newInstance(String id, boolean useMapDB, int poolSize, int derepExpire){
 		CrawlerThreadPoolImpl newPool = new CrawlerThreadPoolImpl(useMapDB, poolSize);
 		newPool.id = id;
+		newPool.derepExpire = derepExpire;
 		return newPool;
 	}
 	public static CrawlerThreadPool getInstance(boolean useMapDB, int poolSize){
@@ -241,6 +247,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			poolLock.unlock();
 		}
 	}
+
+	@Override
+	public void addCrawler(CrawlerApi crawlerApi) {
+		this.crawlers.put(String.valueOf(crawlerApi.getId()), crawlerApi);
+	}
+
 	public Object executeIfAbsent(URL url){
 		Object loc = null;
 		if(!isOpen) open();//open
@@ -301,7 +313,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	/**
 	 * @param url
 	 */
-	private void executeWithKeyNot(URL url){
+	public void executeWithKeyNot(URL url){
 		Object loc = null;
 		if(!isOpen) open();//open
 		CrawlerStatus status = statuses.get(url.getCid());
@@ -332,8 +344,9 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 			logger.trace("error occured in pool: actNum:"+actNum+" queueNum:"+queueNum);
 		}
 		if(actNum < poolSize && actNum >0 & queueNum > 0 && actNum/queueNum < 1){
-			logger.trace("create new thread:"+(queueNum - actNum));
-			for(int i = 0;i<queueNum - actNum;i++){
+			int min = (int)Math.min(queueNum - actNum, poolSize - actNum);
+			logger.trace("create new thread:"+ min);
+			for(int i = 0;i< min && num.get() <= poolSize;i++){
 				Worker worker = new Worker();
 				new Thread(worker,DEFAULT_THREAD_PREFIX + id + "-" + nextThreadId()).start();
 				num.incrementAndGet();
@@ -401,6 +414,7 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 							status.status(Status.RUNNING);
 						}
 						CrawlerApi crawler = status.getCrawler();
+						long executeTime = System.currentTimeMillis();
 						try{
 							//the specific crawl process is in class Crawler
 							if(null != url.getType()){
@@ -418,10 +432,25 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									throw new RuntimeException("wrong");
 								}
 								status.finish(url);//finish the work
+								executeTime = System.currentTimeMillis() - executeTime;
+								//limited the speed of thread and release the cpu source
+								long sleep = executeTime > 1000?50:1000 - executeTime;
+								try {
+									Thread.sleep(sleep);
+								} catch (InterruptedException e) {
+									logger.error(e);
+								}
 							}
 						}catch(Exception ex){
 							Throwable root = ex;
-							if(url.getRetry() >= maxRetry){
+							if(ex instanceof ProxyForbiddenException){
+//								ex.printStackTrace();
+								logger.info(ex.getMessage() + " PROXY:" + url.getProxy());
+								if(StringUtils.isEmpty(url.getProxy())){
+									//if use the dynamic proxy, try again
+									executeWithKeyNot(url);
+								}
+							}else if(url.getRetry() >= maxRetry){
 								logger.error("retry limited!\n"+root.getMessage());
 								excReportStore.add(new ExcReport(url, ex));
 							}else{
@@ -430,15 +459,15 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 									root = root.getCause();
 								}
 								if(root instanceof SocketTimeoutException){
-									logger.info("timeout exception occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
+									logger.info("timeout exception occurred: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
 									executeWithKeyNot(url);
 								}else if(root instanceof ProtocolException){
-									logger.info("protocal exception : \n"+root.getMessage());
+									logger.info("protocol exception : \n"+root.getMessage());
 								}else if(root instanceof IOException){
-									logger.info("io error occured: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
+									logger.info("io error occurred: url:->"+url.getUrl()+" local:"+url.getLocal()+" msg:"+root.getMessage());
 									executeWithKeyNot(url);
 								}else{
-									logger.error("unknown error occured: " + ex.getMessage());
+									logger.error("unknown error occurred: " + ex.getMessage());
 									excReportStore.add(new ExcReport(url, ex));
 								}
 							}
@@ -465,6 +494,12 @@ public class CrawlerThreadPoolImpl implements CrawlerThreadPool{
 	public boolean isUseMapDB() {
 		return useMapDB;
 	}
+
+	@Override
+	public void addMonitor(Monitor monitor) {
+		this.monitors.add(monitor);
+	}
+
 	public void setUseMapDB(boolean useMapDB) {
 		this.useMapDB = useMapDB;
 	}

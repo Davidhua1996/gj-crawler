@@ -4,9 +4,14 @@ import com.gj.web.crawler.parse.json.JsonUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.io.*;
+import java.lang.management.ManagementFactory;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.zip.GZIPInputStream;
 
 /**
  * proxy tool
@@ -22,14 +27,18 @@ public class ProxyUtils {
     private static final double CONNECT_RATIO = Math.log(0.6)/ 5000;
     private static final double READ_RATIO = Math.log(0.6) / 8000;
     private static final double HEALTH_CHECK_DECAY_RATIO = 0.25;
-    private static final String PROXY_SERVER_LIST_LOCATION = "proxy-server-list";
     private static final ProxyContainer container = new ProxyContainer(PROXY_CONTAINER_MAX_SIZE);
-    private static final List<ProxyContainer.ProxyEntity> invalids = new ArrayList<>();
+    private static final CopyOnWriteArrayList<ProxyContainer.ProxyEntity> invalids = new CopyOnWriteArrayList<>();
     private static final Map<String, String> forbids = new ConcurrentHashMap<>();
     private static final Logger logger = LogManager.getLogger(ProxyUtils.class);
+    private static String PROXY_SERVER_LIST_LOCATION;
     private static double PROXY_AVAIL_LEVEL = 0.8;
     static{
+        String pid = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+        PROXY_SERVER_LIST_LOCATION = "proxy-server-list";
         init();
+        PROXY_SERVER_LIST_LOCATION = "proxy-server-list-"+System.getProperty("proxy-list", "default");
+        init();//twice init
         TimerTask persist = new TimerTask() {
             @Override
             public void run() {
@@ -39,40 +48,61 @@ public class ProxyUtils {
         TimerTask availableCheck = new TimerTask() {
             @Override
             public void run() {
-                logger.info("Start to available_check, invalids  size:"+invalids.size());
+                logger.trace("Start to available_check, invalids  size:"+invalids.size());
                 //try to active the invalid Proxy Server
-                Iterator<ProxyContainer.ProxyEntity> iterator = invalids.iterator();
-                while(iterator.hasNext()){
-                    ProxyContainer.ProxyEntity entity = iterator.next();
+                System.out.println("invalids:"+invalids.size());
+                invalids.parallelStream().forEach((entity) ->{
                     Validate validate = null;
-                    if(entity.disable && entity.active < System.currentTimeMillis()){
-                       validate = isAvailable(entity.proxy, entity.badURL);
-                    }else if(entity.disable) {
-                        continue;
-                    }else if(!entity.disable){
-                        validate = isAvailable(entity.proxy, entity.badURL);
+                    if(entity.disable) {
+                        //try to unblock
+                        boolean unblock = false;
+                        if(null != entity.config){
+                            for(ProxyConfig.UnblockMethod unblockMethod : entity.config.getUnblockMethodChain()){
+                                if(unblockMethod.isMatched(entity.badCode, entity.badContent)){
+                                    unblock = unblockMethod.unblock(entity);
+                                    break;
+                                }
+                            }
+                        }
+                        if(unblock){
+                            entity.active = 0;
+                        }
+                        if (entity.active >= 0 && entity.active < System.currentTimeMillis()) {
+                            validate = isAvailable(entity.proxy, entity.badURL, entity.config);
+                        } else if (entity.active < 0) {
+                            invalids.remove(entity);
+                            return;
+                        } else {
+                            return;
+                        }
+                    }else{
+                        validate = isAvailable(entity.proxy, entity.badURL, entity.config);
                     }
                     if(validate.isResult()){
                         entity.reconnect = 0;
                         entity.rate = validate.rate;
                         entity.badURL = null;
+                        entity.badContent = null;
+                        entity.badCode = "0";
                         entity.active = -1;
                         entity.disable = false;
                         entity.clear();
                         container.addProxy(entity);//if available, add to the proxy container
                         forbids.remove(entity.address);
-                        iterator.remove();
+                        invalids.remove(entity);
                     }else if(++entity.reconnect >= PROXY_AVAIL_MAX_RECONNECT){
-                        iterator.remove();//abort it;
+                        forbids.remove(entity.address);
+                        invalids.remove(entity);//abort it;
                     }
+                });
                 }
-            }
         };
         TimerTask healthCheck = new TimerTask() {
             public void run() {
                 int capacity = container.capacity();
-                logger.info("Start to health_check, container size:" + capacity );
+                logger.trace("Start to health_check, container size:" + capacity );
                 //check the Proxy Server in use;
+                int record = capacity;
                 for(int i = 0; i < capacity; i ++){
                     ProxyContainer.ProxyEntity entity = container.get(i);
                     if(entity.disable){
@@ -86,29 +116,37 @@ public class ProxyUtils {
                         invalids.add(entity);
                     }
                 }
+                if(record != container.capacity()){
+                    logger.info("[Health_Check] container size change: "+ container.capacity());
+                }
             }
         };
         Timer timer = new Timer("PROXY_CONTAINER_TIMER");
-        timer.schedule(availableCheck, PROXY_AVAIL_CHECK_INTERVAL, PROXY_AVAIL_CHECK_INTERVAL);
+        Timer timer1 = new Timer("PROXY_INVALID_TIMER");
+        timer1.schedule(availableCheck, PROXY_AVAIL_CHECK_INTERVAL, PROXY_AVAIL_CHECK_INTERVAL);
         timer.schedule(healthCheck, PROXY_HEALTH_CHECK_INTERVAL, PROXY_HEALTH_CHECK_INTERVAL);
         timer.schedule(persist, PROXY_PERSIST_INTERVAL, PROXY_PERSIST_INTERVAL);
     }
-    public static void record(ProxyContainer.ProxyEntity entity, ProxyConfig proxyConfig, String url, int respCode){
+    public static void record(ProxyContainer.ProxyEntity entity, ProxyConfig proxyConfig, String url, int respCode, String content){
         if(null != entity) {
-            if(respCode >= 400){//when be forbidden, disable the proxy
-                Integer time = null != proxyConfig?proxyConfig.getForbiddenTime(String.valueOf(respCode)):null;
-                if(null == time) {
-                    container.disable(entity, -1);
-                }else{
-                    container.disable(entity, time);
-                }
+            Integer time = null != proxyConfig?proxyConfig.getForbiddenTime(String.valueOf(respCode)):null;
+            if(null != time && time > 0){//when be forbidden, disable the proxy
+                container.disable(entity, time);
                 entity.badURL = url;
+                entity.badContent = content;
+                entity.config = proxyConfig;
+                entity.badCode = String.valueOf(respCode);
             }else if(respCode == -1){
                 entity.badURL = url;
             }
             statsRespCode(entity, respCode);
         }
     }
+
+    public static void removeProxy(String address){
+        container.remove(new ProxyContainer.ProxyEntity(address, 1));
+    }
+
     public static void addProxyIfAvailable(String hostname, Integer port){
         double rate = 0.0;
         for(int i = 0;i < PROXY_AVAIL_CHECK_TIME; i++){
@@ -129,27 +167,29 @@ public class ProxyUtils {
     public static Validate isAvailable(String hostname, int port){
         if(forbids.get(hostname +":"+port) == null) {
             return isAvailable(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port)),
-                    null );
+                    null , null);
         }else{
             return new Validate();
         }
     }
     public static Validate isAvailable(String hostname, int port, String url){
-        return isAvailable(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port)), url);
+        return isAvailable(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port)), url, null);
     }
     public static Validate isAvailable(Proxy proxy){
-        return isAvailable(proxy, null);
+        return isAvailable(proxy, null, null);
     }
-    public static Validate isAvailable(Proxy proxy, String dist){
+    public static Validate isAvailable(Proxy proxy, String dist, ProxyConfig config){
         boolean result = true;
         URL url = null;
         long record = -1;
         long connectTime = -1;
         long readTime = -1;
         int code = -1;
+        Validate validate = new Validate();
         try {
             url = new URL(dist == null?PROXY_AVAIL_CHECK_WEBSITE:dist);
             HttpURLConnection conn = (HttpURLConnection)url.openConnection(proxy);
+            conn.setRequestProperty("Connection", "close");
             conn.setConnectTimeout((int)(Math.log(PROXY_AVAIL_LEVEL)/CONNECT_RATIO));
             conn.setReadTimeout((int)(Math.log(PROXY_AVAIL_LEVEL)/READ_RATIO));
             conn.setInstanceFollowRedirects(true);//allow the redirects with response code 3xx
@@ -165,8 +205,13 @@ public class ProxyUtils {
             code = conn.getResponseCode();
             StringBuffer buffer = new StringBuffer();
             String tmp = null;
+            InputStream in = conn.getInputStream();
+            if(null != conn.getHeaderField("Content-Encoding")
+                    && conn.getHeaderField("Content-Encoding").equals("gzip")){
+                in = new GZIPInputStream(in);
+            }
             BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    conn.getInputStream(),"UTF-8"));
+                   in,"UTF-8"));
             while((tmp = reader.readLine())!= null){
                 buffer.append(tmp);
             }
@@ -175,26 +220,31 @@ public class ProxyUtils {
             if(dist == null) {
                 String json = buffer.toString().trim();
                 if (json.startsWith("{") && json.endsWith("}")) {
-                    Map<String, Object> jsonMap = JsonUtils.fromJson(buffer.toString(), Map.class);
+                    Map<String, Object> jsonMap = JsonUtils.fromJson(buffer.toString(), Object.class);
                     if (!jsonMap.get("url").equals(PROXY_AVAIL_CHECK_WEBSITE)) {
                         result = false;
                     }
                 } else {
                     result = false;
                 }
+            }else{
+                validate.content = buffer.toString();
             }
-//            if(dist == null && !"https://www.baidu.com/".equals(conn.getHeaderField("Location"))){
-//                result = false;
-//            }
         }catch(Exception e){
-//            e.printStackTrace();
            result = false;
         }
-        Validate validate = new Validate();
-        validate.result = result;
         validate.code = code;
         validate.connectTime  = connectTime;
         validate.readTime = readTime;
+        if(null != config){
+            if(config.isForbiddenContent(validate.content)){
+                result = false;
+            }
+            if(result && config.isForbiddenCode(String.valueOf(code))){
+                result = false;
+            }
+        }
+        validate.result = result;
         if(result) {
             validate.rate = (Math.pow(Math.E, CONNECT_RATIO * connectTime) +
                     Math.pow(Math.E, READ_RATIO * readTime)) / 2.0;
@@ -234,7 +284,7 @@ public class ProxyUtils {
                     }
                     ProxyContainer.ProxyEntity entity = container.get(u);
                     entity.cweight --;
-                    logger.info("use proxy:" + entity.address);
+                    logger.trace("use proxy:" + entity.address);
                     return entity;
                 }
                 if(reset ++ > 0){
@@ -245,7 +295,7 @@ public class ProxyUtils {
                         if(!container.get(i).disable) {
                             ProxyContainer.ProxyEntity entity = container.get(0);
                             entity.cweight--;
-                            logger.info("use proxy:" + entity.address);
+                            logger.trace("use proxy:" + entity.address);
                             return entity;
                         }
                     }
@@ -275,10 +325,11 @@ public class ProxyUtils {
         double rate = entity.rate;
         int _2xx =  entity._2xx.getAndSet(0);
         int _3xx =  entity._3xx.getAndSet(0);
+        int _4xx = entity._4xx.getAndSet(0);
         int _5xx =  entity._5xx.getAndSet(0);
         int _xx  =  entity._xx.getAndSet(0);
-        int sum = _2xx + _3xx + _5xx + _xx;
-        int fail = _5xx + _xx;
+        int sum = _2xx + _3xx + _4xx + _5xx + _xx;
+        int fail = _4xx + _5xx + _xx;
         if(sum > 0) {
 //            System.out.println(HEALTH_CHECK_DECAY_RATIO * ((double)fail / (double)sum));
             rate -= (HEALTH_CHECK_DECAY_RATIO * ((double)fail / (double)sum));
@@ -303,18 +354,18 @@ public class ProxyUtils {
     private static void persist(){
         BufferedWriter writer = null;
         try{
-            logger.info("Start to persist ProxyUtils.Proxy");
+            logger.trace("Start to persist ProxyUtils.Proxy");
             List<String> addrList = new ArrayList<String>();
             container.lock();
             try {
-                logger.info("Get address list from ProxyUtils.ProxyContainer,size:"+container.capacity());
+                logger.trace("Get address list from ProxyUtils.ProxyContainer,size:"+container.capacity());
                 for (int i = 0; i < container.capacity(); i++){
                     addrList.add(container.get(i).address);
                 }
             }finally {
                 container.release();
             }
-            logger.info("Write address list to location:"+PROXY_SERVER_LIST_LOCATION);
+            logger.trace("Write address list to location:"+PROXY_SERVER_LIST_LOCATION);
             writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream((ProxyUtils.class.getClassLoader().getResource("").getPath()+PROXY_SERVER_LIST_LOCATION)),
                     "UTF-8"));
@@ -323,7 +374,7 @@ public class ProxyUtils {
                 writer.newLine();
             }
             writer.flush();
-            logger.info("End to persist ProxyUtils.ProxyContainer");
+            logger.trace("End to persist ProxyUtils.ProxyContainer");
         } catch (FileNotFoundException e) {
             logger.error(e);
         } catch (UnsupportedEncodingException e) {
@@ -341,9 +392,17 @@ public class ProxyUtils {
         }
     }
     private static void init(){
+        if("true".equals(System.getProperty("debug"))){
+            return;
+        }
         BufferedReader reader = null;
         try {
             logger.info("Start to init ProxyUtils.ProxyContainer, location="+PROXY_SERVER_LIST_LOCATION);
+            File file = new File(ProxyUtils.class.getClassLoader().getResource("").toURI().getPath()+PROXY_SERVER_LIST_LOCATION);
+            if(!file.exists()){
+                file.createNewFile();
+                return;
+            }
             reader = new BufferedReader(new InputStreamReader
                     (ProxyUtils.class.getClassLoader().getResourceAsStream(PROXY_SERVER_LIST_LOCATION), "UTF-8"));
             String address = null;
@@ -357,6 +416,8 @@ public class ProxyUtils {
         } catch (UnsupportedEncodingException e) {
             logger.error(e);
         } catch (IOException e) {
+            logger.error(e);
+        } catch (URISyntaxException e) {
             logger.error(e);
         } finally{
             if(null!= reader){
@@ -374,6 +435,7 @@ public class ProxyUtils {
         private int code = -1;
         private double rate = 0d;
         private double connectTime = -1;
+        private String content;
         private double readTime = -1;
 
         public boolean isResult() {
@@ -414,6 +476,14 @@ public class ProxyUtils {
 
         public void setReadTime(double readTime) {
             this.readTime = readTime;
+        }
+
+        public String getContent() {
+            return content;
+        }
+
+        public void setContent(String content) {
+            this.content = content;
         }
     }
 }

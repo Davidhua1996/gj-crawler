@@ -58,6 +58,8 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 	private static final Logger logger = LogManager.getLogger(Parser.class);
 
 	private static final String[] JQUERY_LAZY = new String[]{"data-original","data-"};
+
+	private static final java.util.regex.Pattern NOT_NUMBER_EXCLUDE = java.util.regex.Pattern.compile("[^0-9.]+");
 		
 	private volatile HTreeMap<String,Object> pmap = null;
 	
@@ -130,9 +132,15 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 		timer.schedule(new TimerTask() {
 			@Override
 			public void run() {
-				synchronized(pmap){
-					pcommit();
-					count = pmap.size()+ COMMIT_PER_COUNT;
+				try {
+					synchronized (pmap) {
+						pcommit();
+						if (null != pmap) {
+							count = pmap.size() + COMMIT_PER_COUNT;
+						}
+					}
+				}catch(Exception e){
+					logger.error(e);
 				}
 			}
 		}, interval, interval);
@@ -172,7 +180,9 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 		ResultModel model = new ResultModel();
 		String path = path();
 		model.putAndAdd("_url", url.getUrl());//put URL to identify the result by default
+		model.putAndAdd("_proxy", url.getProxy());//proxy message
 		model.putAndAdd("_payload", url.getPayload());//add payload message
+		model.putAndAdd("_enqueueTime", url.getEnqueueTime());//add enqueueTime
 		if(isJson){
 			model.putAndAdd(JSON_KEY, doc.body().text());
 		}else {
@@ -331,6 +341,9 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 			value = attr!=null?el.attr(attr):el.text();
 		}else if(type.matches("html")){
 			value = attr!=null?el.attr(attr):el.html();
+		}else if(type.matches("number")){
+			String tmp = attr != null? el.attr(attr):el.text();
+			value = NOT_NUMBER_EXCLUDE.matcher(tmp).replaceAll("").trim();
 		}else{
 			throw new RuntimeException("unknow type:"+type+" in pattern!");
 		}
@@ -357,7 +370,7 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 				if(pmap.size() >= count){
 					try{
 						pcommit();
-						count += COMMIT_PER_COUNT;
+						count = pmap.size() + COMMIT_PER_COUNT;
 					}catch(Exception e){
 						logger.info(e);
 					}
@@ -367,18 +380,21 @@ public class Parser extends BasicLifecycle implements ParserApi,Serializable{
 	}
 	public void pcommit(){
 		try{
-			if(!db.isClosed()) db.commit();
 			if(store.size() > 0){
 				synchronized(store){
-					callback.persist(store);
-					store.clear();
+					try {
+						callback.persist(store);
+					}finally{
+						store.clear();
+					}
 				}
 			}
+			if(!db.isClosed()) db.commit();
 		}catch(Exception e){
 			db.rollback();
-			throw new RuntimeException(e);
+			logger.error(e);
 		}finally{
-			System.gc();
+//			System.gc();
 		}
 	}
 	private void deleteRec(final File parent){

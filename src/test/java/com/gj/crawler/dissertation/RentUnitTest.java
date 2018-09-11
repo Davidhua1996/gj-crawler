@@ -29,10 +29,9 @@ public class RentUnitTest {
     public static void main(String[] args){
         initProxyPool();
         pool = CrawlerThreadPoolImpl.getInstance(true , 3);
-        Map<String,CrawlerApi> crawlers = pool.getCrawlers();
-        crawlers.put("xiaozhu-fangzi", performRent());
-        crawlers.put("xiaozhu-fangdong", performOwn());
-        crawlers.put("xiaozhu-cmt", performCmt());
+        pool.addCrawler(performRent());
+        pool.addCrawler(performOwn());
+        pool.addCrawler(performCmt());
 //        pool.setDereplicate(false);//关闭url去重，即允许url重复
         pool.open();
 //        pool.execute(new URL("xiaozhu-fangzi", "http://gz.xiaozhu.com/fangzi/21994257701.html"));
@@ -40,8 +39,8 @@ public class RentUnitTest {
     }
     private static void initProxyPool(){
         final CrawlerThreadPool proxyPool = CrawlerThreadPoolImpl.newInstance("proxy", true, 5);
-        proxyPool.getCrawlers().put("proxy-xici", ProxyCrawler.XICI);
-        proxyPool.getCrawlers().put("proxy-github", ProxyCrawler.GITHUB_PROXY);
+        proxyPool.addCrawler(ProxyCrawler.XICI);
+        proxyPool.addCrawler(ProxyCrawler.GITHUB_PROXY);
         Timer timer = new Timer("PROXY_CRAWL_TIMER");
         TimerTask xici = new TimerTask() {
             @Override
@@ -179,7 +178,7 @@ public class RentUnitTest {
         p.setChildDir("/zhuzhu");
         Map<String, String> patterns = new HashMap<String, String>();
         patterns.put("name", "{exp:'div[class=fd_infor] h1:eq(0)',type:'text'}");
-        patterns.put("source", "{exp:'div[class=fd_infor] ul li:eq(0) span',type:'text-all'}");
+        patterns.put("source", "{exp:'div[class=fd_infor] ul li:eq(0) span strong',type:'text'}");
         patterns.put("reply", "{exp:'div[class=fd_infor] ul li:eq(1) span',type:'text-all'}");
         patterns.put("comment", "{exp:'div[class=fd_infor] ul li:eq(2) span',type:'text-all'}");
         patterns.put("time", "{exp:'div[class=fd_infor] ul li:eq(3) span',type:'text-all'}");

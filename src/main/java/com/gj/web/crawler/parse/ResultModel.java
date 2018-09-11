@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -46,21 +47,30 @@ public class ResultModel implements Serializable{
 	public Long getLong(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
-			return new Long(obj[0].toString());
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Long(value);
+			}
 		}
 		return null;
 	}
 	public Integer getInteger(String key){
 		Object[] obj = inner.get(key);
-		if(null != obj && obj.length > 0){
-			return new Integer(obj[0].toString());
+		if(null != obj && obj.length > 0 ){
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Integer(value);
+			}
 		}
 		return null;
 	}
 	public Double getDouble(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
-			return new Double(obj[0].toString());
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Double(value);
+			}
 		}
 		return null;
 	}
@@ -81,21 +91,30 @@ public class ResultModel implements Serializable{
 	public Short getShort(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
-			return new Short(obj[0].toString());
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Short(value);
+			}
 		}
 		return null;
 	}
 	public Boolean getBoolean(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
-			return new Boolean(obj[0].toString());
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Boolean(value);
+			}
 		}
 		return null;
 	}
 	public Float getFloat(String key){
 		Object[] obj = inner.get(key);
 		if(null != obj && obj.length > 0){
-			return new Float(obj[0].toString());
+			String value = obj[0].toString();
+			if(!StringUtils.isEmpty(value)){
+				return new Float(value);
+			}
 		}
 		return null;
 	}
@@ -129,7 +148,11 @@ public class ResultModel implements Serializable{
 		}
 		return null;
 	}
-	public String[] getValue(String key){
-		return (String[]) inner.get(key);
+	public Object[] getValue(String key){
+		Object[] value =  inner.get(key);
+		if(null == value){
+			return new Object[]{};
+		}
+		return value;
 	}
 }

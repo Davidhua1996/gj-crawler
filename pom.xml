@@ -12,7 +12,7 @@
   	<contributor>
   		<name>davidHua</name>
   		<email>
-  			david_hua1996@hotmail.com/davidhua19960214@gmail.com
+  			david_hua1996@hotmail.com
   		</email>
   		<timezone>GMT+8</timezone>
   		<url>https://git.oschina.net/davidhua_1996</url>
@@ -69,27 +69,32 @@
 		<artifactId>spring-web</artifactId>
 		<version>${org.springframework.version}</version>
 	</dependency>
-	<dependency>
-		<groupId>net.sourceforge.htmlunit</groupId>
-		<artifactId>htmlunit</artifactId>
-		<version>2.24</version> 
-		<!-- <version>2.26</version> --> 
-	</dependency>
-	<dependency>
-		<groupId>commons-pool</groupId>
-		<artifactId>commons-pool</artifactId>
-		<version>1.6</version>
-	</dependency>
-	<dependency>
-		<groupId>org.mapdb</groupId>
-		<artifactId>mapdb</artifactId>
-		<version>3.0.2</version>
-	</dependency>
-	<dependency>
-    	<groupId>org.mapdb</groupId>
-    	<artifactId>mapdb</artifactId>
-    	<version>1.0.9</version>
-	</dependency>
+      <dependency>
+          <groupId>net.sourceforge.htmlunit</groupId>
+          <artifactId>htmlunit</artifactId>
+          <version>2.24</version>
+          <!-- <version>2.26</version> -->
+      </dependency>
+      <dependency>
+          <groupId>xerces</groupId>
+          <artifactId>xercesImpl</artifactId>
+          <version>2.11.0</version>
+      </dependency>
+      <dependency>
+          <groupId>commons-pool</groupId>
+          <artifactId>commons-pool</artifactId>
+          <version>1.6</version>
+      </dependency>
+      <dependency>
+          <groupId>org.mapdb</groupId>
+          <artifactId>mapdb</artifactId>
+          <version>3.0.2</version>
+      </dependency>
+      <dependency>
+          <groupId>org.mapdb</groupId>
+          <artifactId>mapdb</artifactId>
+          <version>1.0.9</version>
+      </dependency>
 	<!-- <dependency>
 	    <groupId>org.seleniumhq.selenium</groupId>
 	    <artifactId>selenium-htmlunit-driver</artifactId>
@@ -120,7 +125,16 @@
                          </manifestEntries>    
                    </archive>  
                </configuration>  
-          </plugin>  
+          </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.3</version>
+            <configuration>
+                <source>1.8</source>
+                <target>1.8</target>
+            </configuration>
+        </plugin>
          <plugin>  
                 <groupId>org.apache.maven.plugins</groupId>  
                 <artifactId>maven-dependency-plugin</artifactId>  

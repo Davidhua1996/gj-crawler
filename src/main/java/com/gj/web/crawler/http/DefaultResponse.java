@@ -30,25 +30,21 @@ public class DefaultResponse implements Response {
 	private Map<String,List<String>> headers = null;
 	private Map<String,String> cookies = new HashMap<String,String>();
 	private ProxyContainer.ProxyEntity proxy;
-	private ProxyConfig proxyConfig;
 	/**
 	 * record the time of attempting to read from input stream 
 	 */
 	private int attemptTime = 0;
-	protected DefaultResponse(HttpURLConnection con, ProxyContainer.ProxyEntity proxy, ProxyConfig proxyConfig){
+	protected DefaultResponse(HttpURLConnection con, ProxyContainer.ProxyEntity proxy){
 		this.con = con;
 		this.proxy = proxy;
-		this.proxyConfig = proxyConfig;
 		resolveHeaders(con);
 	}
 	protected void setBody(ByteBuffer body){
 		this.body = body;
 	}
 	public String body() {
-		if(null == body || body.capacity() <= 0){
-			int code = -1;
+		if(null == body){
 			try {
-				code = con.getResponseCode();
 				InputStream in = con.getInputStream();
 				if(null != con.getHeaderField("Content-Encoding") 
 						&& con.getHeaderField("Content-Encoding").equals("gzip")){
@@ -59,11 +55,6 @@ public class DefaultResponse implements Response {
 				if(e instanceof FileNotFoundException){//404 ignore
 					//TODO make some logs
 					return null;
-				}
-				if(e instanceof SocketTimeoutException){
-					ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), -1);
-				}else {
-					ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), code);
 				}
 				throw new RuntimeException("error happened when create input stream in connection",e);
 			}
@@ -110,7 +101,6 @@ public class DefaultResponse implements Response {
 			if(ie.getCause() instanceof SocketTimeoutException && attemptTime < MAX_ATTEMPT_TIME){
 				return streamToByte(in);
 			}else{
-				ProxyUtils.record(this.proxy, proxyConfig, con.getURL().toString(), -1);
 				if(ie.getCause() instanceof SocketTimeoutException){
 					throw new RuntimeException("Read time out and have been tried "+attemptTime+" times",ie);
 				}else{

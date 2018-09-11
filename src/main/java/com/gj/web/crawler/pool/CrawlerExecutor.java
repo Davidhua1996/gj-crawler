@@ -63,7 +63,12 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public void execute(URL url) {
 		pool.execute(url);
 	}
-	
+
+	@Override
+	public void addCrawler(CrawlerApi crawlerApi) {
+			pool.addCrawler(crawlerApi);
+	}
+
 	public void execute(String cid, byte[] payload) {
 		pool.execute(cid, payload);
 	}
@@ -82,6 +87,12 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public void execute(String cid, byte[] payload, Map<String, Object> params) {
 		pool.execute(cid, payload, params);
 	}
+
+	@Override
+	public void executeWithKeyNot(URL url) {
+		pool.executeWithKeyNot(url);
+	}
+
 	public Map<String, CrawlerApi> getCrawlers() {
 		return pool.getCrawlers();
 	}
@@ -151,6 +162,12 @@ public class CrawlerExecutor implements CrawlerThreadPool,InitializingBean{
 	public boolean isUseMapDB() {
 		return pool.isUseMapDB();
 	}
+
+	@Override
+	public void addMonitor(Monitor monitor) {
+		this.pool.addMonitor(monitor);
+	}
+
 	/**
 	 * start to open the pool after setting the properties
 	 */
